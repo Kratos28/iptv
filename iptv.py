@@ -35,7 +35,7 @@ import urllib.request
 OUTPUT_FILE = os.environ.get("IPTV_OUTPUT", "iptv.txt")
 REPORT_FILE = os.environ.get("IPTV_REPORT", "iptv_report.json")  # 验证报告，供 AI 自愈使用
 MAX_WORKERS = int(os.environ.get("IPTV_WORKERS", "8"))
-MIN_OK = int(os.environ.get("IPTV_MIN_OK", "1"))  # 通过数低于此值则不更新订阅文件
+MIN_OK = int(os.environ.get("IPTV_MIN_OK", "50"))  # 通过数低于此值则与旧订阅合并更新（防限速误覆盖）
 HTTP_TIMEOUT = 10
 SEG_TIMEOUT = 15          # 分片下载超时（秒）
 RETRY = 2                 # 每个频道获取播放地址的重试次数

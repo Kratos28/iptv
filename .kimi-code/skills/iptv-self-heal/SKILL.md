@@ -32,5 +32,5 @@ whenToUse: 当用户要求排查/修复直播源、有频道不能观看或不�
 ## 约束
 
 - 只改 `iptv.py`（通常是 `EXTRA_CHANNELS` / `SUPPLEMENT_CHANNELS` 配置）和重新生成 `iptv.txt`；不改工作流文件，除非用户明确要求。
-- 保持仅标准库依赖，不要引入第三方包；环境变量（README 已精简，约定以此处为准）：`IPTV_OUTPUT`（订阅输出路径，默认 iptv.txt）/ `IPTV_REPORT`（报告路径，默认 iptv_report.json）/ `IPTV_WORKERS`（并发数，默认 8）/ `IPTV_MIN_OK`（通过数阈值，低于则不更新订阅，云端设为 50）/ `IPTV_SSL_VERIFY`（本机 TLS 拦截代理下设 0）。
+- 保持仅标准库依赖，不要引入第三方包；环境变量（README 已精简，约定以此处为准）：`IPTV_OUTPUT`（订阅输出路径，默认 iptv.txt）/ `IPTV_REPORT`（报告路径，默认 iptv_report.json）/ `IPTV_WORKERS`（并发数，默认 8）/ `IPTV_MIN_OK`（通过数阈值，默认 50，低于则与旧订阅合并而非覆盖）/ `IPTV_SSL_VERIFY`（本机 TLS 拦截代理下设 0）。
 - 提交信息用中文，遵循现有风格：`fix: ...` / `chore: ...`；未获用户同意不执行 git commit/push。
