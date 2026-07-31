@@ -76,6 +76,16 @@ EXTRA_CHANNELS = {
             "https://stream1.freetv.fun/yan-dong-min-sheng-16.ctv",
         ],
     },
+    "港澳": {
+        "翡翠台": [
+            "http://r.jdshipin.com/qrfbg",
+            "http://r.jdshipin.com/qClQf",
+            "http://r.jdshipin.com/62WM7",
+        ],
+        "翡翠台4K": [
+            "http://r.jdshipin.com/n90gt",
+        ],
+    },
 }
 
 APP_VERSION = "2600034600"
