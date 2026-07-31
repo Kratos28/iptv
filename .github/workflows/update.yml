@@ -15,6 +15,9 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      # secrets 不能直接用在 if 里，先落到 job 级环境变量
+      KIMI_KEY_SET: ${{ secrets.KIMI_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +55,29 @@ jobs:
 常见原因：境外 runner 被 CDN 限速导致通过率低于阈值，或源站接口/签名算法变更。"
             gh issue create --label alert --title "直播源更新失败 $(date -u '+%Y-%m-%d')" --body "$BODY"
           fi
+
+      - uses: actions/setup-node@v4
+        if: failure() && env.KIMI_KEY_SET == 'true'
+        with:
+          node-version: 22
+
+      - name: AI 自愈（Kimi CLI 排查并修复）
+        if: failure() && env.KIMI_KEY_SET == 'true'
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KIMI_MODEL_NAME: "kimi-for-coding"
+          KIMI_MODEL_API_KEY: ${{ secrets.KIMI_API_KEY }}
+        run: |
+          npm install -g @moonshot-ai/kimi-code --silent
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          kimi -p '你是本仓库的自动修复 Agent。定时任务"抓取并验证直播源"(python iptv.py)刚运行失败，带 label=alert 的告警 Issue 已创建。请按以下流程处理：
+1. 先在本机跑一次 python iptv.py（env IPTV_MIN_OK=1），观察输出判断失败类型。
+2. 如果只是境外网络被 CDN 限速（能抓到频道列表、能拿到播放地址，只是验证通过率低），属于已知现象，不要改任何代码：用 gh issue list --label alert 找到告警 Issue，评论说明"境外 runner 限速导致，非源站故障，旧订阅仍有效"并关闭该 Issue，然后结束。
+3. 如果是源站接口/签名算法变更（频道列表获取失败、playurl 接口报错、ddCalcu 签名失效等）：调研最新算法（可参考 https://github.com/develop202/migu_video 的最新源码），修复 iptv.py，修复后运行 python iptv.py 验证（境外环境通过率低可以接受，只要确认接口能正常返回播放地址即可），然后 git add/commit/push 推送修复，并在告警 Issue 评论修复说明。
+4. 如果无法确定原因或修不了，在告警 Issue 评论你排查到的信息，等待人工处理。
+约束：只修改 iptv.py；不要修改工作流文件；除上述 Issue 评论/关闭外不做其他对外操作。'
 
       - name: 成功后关闭告警 Issue
         if: success()
