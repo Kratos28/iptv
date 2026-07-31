@@ -22,7 +22,7 @@ CCTV1,http://xxx.m3u8?...
 仅依赖 Python 3 标准库，无需安装任何第三方包：
 
 ```bash
-python3 migu_iptv.py
+python3 iptv.py
 ```
 
 生成的 `iptv.txt` 只包含通过验证的频道。验证方式：拉取 m3u8 播放列表 → 下载首个分片实测速度，实测速度不低于码率才判定为"流畅"。
