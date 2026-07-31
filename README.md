@@ -31,6 +31,7 @@ python3 migu_iptv.py
 |---|---|---|
 | `IPTV_OUTPUT` | `iptv.txt` | 输出文件路径 |
 | `IPTV_WORKERS` | `8` | 并发验证线程数 |
+| `IPTV_MIN_OK` | `1` | 通过频道数低于该值时不更新订阅文件（防低质量网络覆盖旧数据） |
 | `IPTV_SSL_VERIFY` | `1` | 本机有 TLS 拦截代理时设为 `0` 关闭证书校验 |
 
 ## 实现原理

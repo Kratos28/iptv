@@ -22,6 +22,9 @@ jobs:
           python-version: "3.x"
 
       - name: 抓取并验证直播源
+        env:
+          # GitHub 境外 runner 被咪咕 CDN 限速时通过率极低，低于阈值则保留旧订阅
+          IPTV_MIN_OK: "50"
         run: python migu_iptv.py
 
       - name: 提交更新

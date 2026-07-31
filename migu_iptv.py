@@ -29,6 +29,7 @@ import urllib.request
 # ---------------- 配置 ----------------
 OUTPUT_FILE = os.environ.get("IPTV_OUTPUT", "iptv.txt")
 MAX_WORKERS = int(os.environ.get("IPTV_WORKERS", "8"))
+MIN_OK = int(os.environ.get("IPTV_MIN_OK", "1"))  # 通过数低于此值则不更新订阅文件
 HTTP_TIMEOUT = 10
 SEG_TIMEOUT = 15          # 分片下载超时（秒）
 RETRY = 2                 # 每个频道获取播放地址的重试次数
@@ -278,14 +279,15 @@ def main():
             ok_count += 1
     lines.append("")
 
+    print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
+    if ok_count < MIN_OK:
+        print(f"[错误] 通过数 {ok_count} 低于阈值 IPTV_MIN_OK={MIN_OK}，"
+              "可能处于被限速的网络环境，保留原订阅文件不更新")
+        sys.exit(1)
+
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
-
-    print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
     print(f"订阅文件已写入 {OUTPUT_FILE}")
-    if ok_count == 0:
-        print("[错误] 没有任何频道通过验证，不更新订阅文件")
-        sys.exit(1)
 
 
 if __name__ == "__main__":
