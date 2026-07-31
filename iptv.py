@@ -512,13 +512,14 @@ def main():
         for name, url in sorted(chans.items(), key=sort_key):
             lines.append(f"{name},{url}")
             ok_count += 1
-    # 文件头部插入本次更新时间（固定北京时间，云端 runner 为 UTC）
+    # 文件头部插入更新时间分组，沿用公共订阅通行格式（🕘️更新时间 分组 + 频道名为时间、
+    # URL 借用本轮已验证的直播地址），确保各播放器正常显示。时间固定北京时间。
     tz_cn = datetime.timezone(datetime.timedelta(hours=8))
     updated_at = datetime.datetime.now(tz_cn).strftime("%Y-%m-%d %H:%M:%S")
-    lines.insert(0, f"{updated_at},#genre#")
-    # 空分组在播放器里不显示，补一条占位频道；URL 需是合法 http 地址才会被播放器保留，
-    # 用不可播放的本地回环地址，避免误点播放出内容
-    lines.insert(1, "更新时间,http://127.0.0.1/")
+    notice_url = groups.get("央视频道", {}).get("CCTV1") or \
+        next((u for g in groups.values() for u in g.values()), "")
+    lines.insert(0, "🕘️更新时间,#genre#")
+    lines.insert(1, f"{updated_at},{notice_url}")
     lines.append("")
 
     print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
