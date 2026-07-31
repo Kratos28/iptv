@@ -512,6 +512,11 @@ def main():
         for name, url in sorted(chans.items(), key=sort_key):
             lines.append(f"{name},{url}")
             ok_count += 1
+    # 文件头部插入本次更新时间（固定北京时间，云端 runner 为 UTC）
+    tz_cn = datetime.timezone(datetime.timedelta(hours=8))
+    updated_at = datetime.datetime.now(tz_cn).strftime("%Y-%m-%d %H:%M:%S")
+    lines.insert(0, f"{updated_at},#genre#")
+    lines.insert(1, f"更新时间,{updated_at}")
     lines.append("")
 
     print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
