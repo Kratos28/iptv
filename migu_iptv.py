@@ -66,6 +66,18 @@ SUPPLEMENT_CHANNELS = {
     "新疆卫视": ["XinjiangTV1.cn"],
 }
 
+# 固定补充频道（公共源里找不到、需手工维护地址的），值为候选地址列表
+# 同样每次运行时实测验证，通过才写入。分组取键名对应的组。
+EXTRA_CHANNELS = {
+    "广东频道": {
+        "广东民生": [
+            "https://16g4q89264.vicp.fun/udp/239.10.0.123:1025",
+            "https://stream1.freetv.fun/yan-dong-min-sheng-35.ctv",
+            "https://stream1.freetv.fun/yan-dong-min-sheng-16.ctv",
+        ],
+    },
+}
+
 APP_VERSION = "2600034600"
 APP_VERSION_ID = APP_VERSION + "-99000-201600010010028"
 # 这两个频道带 appCode 头会导致无法回放（沿用上游项目的特殊处理）
@@ -189,17 +201,56 @@ def resolve_final_url(url: str) -> str:
 
 
 # ---------------- 流畅度验证 ----------------
+def http_get_partial(url: str, max_bytes: int, timeout: int) -> tuple:
+    """最多读取 max_bytes 字节，返回 (数据, 耗时秒)。用于无尽流的测速。"""
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    t0 = time.time()
+    buf = bytearray()
+    with urllib.request.urlopen(req, timeout=timeout, context=SSL_CTX) as r:
+        while len(buf) < max_bytes:
+            if time.time() - t0 > timeout:
+                break
+            chunk = r.read(min(65536, max_bytes - len(buf)))
+            if not chunk:
+                break
+            buf.extend(chunk)
+    return bytes(buf), time.time() - t0
+
+
 def check_stream(url: str) -> tuple:
     """
-    验证直播源：拉取 m3u8 -> 下载首个分片测速。
+    验证直播源：m3u8 下载首个分片测速；TS 裸流直接采样测速。
     返回 (是否流畅, 描述信息)
     """
+    try:
+        head, elapsed = http_get_partial(url, 2048, HTTP_TIMEOUT)
+    except Exception as e:
+        return False, f"播放列表获取失败: {e}"
+
+    # TS 裸流（udpxy 组播转 HTTP 等）：采样 1MB 测速
+    if head[:1] == b"\x47":
+        try:
+            data, elapsed = http_get_partial(url, 1024 * 1024, SEG_TIMEOUT)
+        except Exception as e:
+            if not head:
+                return False, f"TS 流读取失败: {e}"
+            data, elapsed = head, max(elapsed, 0.01)
+        if len(data) < 100 * 1024:
+            return False, f"TS 流数据不足({len(data)}B)"
+        speed_bps = len(data) * 8 / max(elapsed, 0.01)
+        info = f"TS流 实测{speed_bps/1e6:.1f}Mbps"
+        # 直播 TS 流按实时码率下发，持续 >=1.5Mbps 即无卡顿
+        ok = speed_bps >= 1_500_000
+        return ok, info + (" 流畅" if ok else " 速度不足")
+
+    playlist = head.decode("utf-8", "replace")
+    if "#EXTM3U" not in playlist:
+        return False, "不是有效的 m3u8"
+    # m3u8 内容可能未读全（head 只有 2KB），重新完整拉取
     try:
         playlist = http_get(url, {"User-Agent": UA}).decode("utf-8", "replace")
     except Exception as e:
         return False, f"播放列表获取失败: {e}"
-    if "#EXTM3U" not in playlist:
-        return False, "不是有效的 m3u8"
 
     # 若是多级列表，选码率最高的一条
     bandwidth = 0
@@ -373,6 +424,20 @@ def main():
                 else:
                     print(f"[补全 FAIL] {n} - {info}")
 
+    # 固定补充频道（手工维护地址，同样实测验证）
+    extra_tasks = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        for gname, chans in EXTRA_CHANNELS.items():
+            for name, urls in chans.items():
+                if name not in existing:
+                    extra_tasks[(gname, name)] = pool.submit(process_supplement, name, urls)
+        for (gname, name), fut in extra_tasks.items():
+            url, info = fut.result()
+            if url:
+                groups.setdefault(gname, {})[name] = url
+                print(f"[补充 OK] {name} - {info}")
+            else:
+                print(f"[补充 FAIL] {name} - {info}")
     # 央视频道按 CCTV 编号排序，其余按名称排序
     def sort_key(item):
         m = re.match(r"^CCTV(\d+)", item[0])
