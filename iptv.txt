@@ -1,4 +1,4 @@
-#genre#
+2026-07-31 22:15:33,#genre#
 更新时间,2026-07-31 22:15:33
 央视频道,#genre#
 CCTV1,http://hlszymgsplive.miguvideo.com:8080/wd_r2/cctv/cctv1hd/1200/index.m3u8?msisdn=d70e0f759999aed15184f37e831e1769&mdspid=&spid=699004&netType=0&sid=2201057821&pid=2028597139&timestamp=20260731141326&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=608807420&ParentNodeID=-99&assertID=2201057821&client_ip=121.40.241.205&SecurityKey=20260731141326&promotionId=&mvid=2201057821&mcid=500020&playurlVersion=ZQ-A1-9.7.2-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=9d11e264d2d6a69ff278b8a01009362d&sv=10004&ct=android
