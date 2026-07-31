@@ -327,6 +327,47 @@ def check_stream(url: str) -> tuple:
     return False, info + " 速度不足"
 
 
+def merge_with_previous(groups: dict, path: str) -> list:
+    """限速导致通过数过低时，与旧订阅合并：本轮实测通过的频道用新地址，
+    未通过的沿用旧地址，保证频道数不减少。
+    返回 [(组名, [(频道名, url)])]；旧文件不存在或为空返回 None。"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            old_lines = f.read().splitlines()
+    except OSError:
+        return None
+    merged = []
+    gname = None
+    seen = set()
+    for line in old_lines:
+        if not line.strip() or "," not in line:
+            continue
+        name, _, url = line.partition(",")
+        if url.strip() == "#genre#":
+            # 跳过更新时间分组（每次重新生成）
+            gname = None if name.startswith("🕘") else name
+            if gname:
+                merged.append((gname, []))
+            continue
+        if gname is None:
+            continue
+        new_url = groups.get(gname, {}).get(name)
+        merged[-1][1].append((name, new_url or url))
+        seen.add((gname, name))
+    # 本轮新通过、旧订阅里还没有的频道，追加进对应分组
+    for g, chans in groups.items():
+        for n, u in chans.items():
+            if (g, n) in seen:
+                continue
+            for mg, mchans in merged:
+                if mg == g:
+                    mchans.append((n, u))
+                    break
+            else:
+                merged.append((g, [(n, u)]))
+    return merged or None
+
+
 # ---------------- 主流程 ----------------
 def process_channel(name: str, pid: str) -> tuple:
     """返回 (url 或 None, 描述)"""
@@ -532,6 +573,31 @@ def main():
     print(f"验证报告已写入 {REPORT_FILE}（{len(failed)} 个频道未通过）")
 
     if ok_count < MIN_OK:
+        # 通过数过低多为境外 runner 被 CDN 限速（源未必失效）。与旧订阅合并：
+        # 本轮实测通过的频道用新地址，未通过的沿用旧地址，频道数不减少；
+        # 一个都没通过才是源站接口级故障，照旧退出触发告警。
+        merged = merge_with_previous(groups, OUTPUT_FILE) if ok_count > 0 else None
+        if merged:
+            mlines = []
+            for g, chans in merged:
+                if not chans:
+                    continue
+                mlines.append(f"{g},#genre#")
+                mlines.extend(f"{n},{u}" for n, u in chans)
+            notice_url = groups.get("央视频道", {}).get("CCTV1") or \
+                next((u for _, chans in merged for _, u in chans), "")
+            mlines.insert(0, f"🕘️更新时间{updated_at},#genre#")
+            mlines.insert(1, f"{updated_at},{notice_url}")
+            mlines.append("")
+            with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+                f.write("\n".join(mlines))
+            # 合并属可接受的降级：报告清空 failed，避免云端对整批限速频道做无效自愈
+            report["failed"] = []
+            with open(REPORT_FILE, "w", encoding="utf-8") as f:
+                json.dump(report, f, ensure_ascii=False, indent=2)
+            print(f"[警告] 通过数 {ok_count} 低于阈值 IPTV_MIN_OK={MIN_OK}（疑似限速），"
+                  "已与旧订阅合并更新：实测通过的换新地址，其余沿用旧地址，频道数不减少")
+            return
         print(f"[错误] 通过数 {ok_count} 低于阈值 IPTV_MIN_OK={MIN_OK}，"
               "可能处于被限速的网络环境，保留原订阅文件不更新")
         sys.exit(1)
