@@ -516,7 +516,9 @@ def main():
     tz_cn = datetime.timezone(datetime.timedelta(hours=8))
     updated_at = datetime.datetime.now(tz_cn).strftime("%Y-%m-%d %H:%M:%S")
     lines.insert(0, f"{updated_at},#genre#")
-    lines.insert(1, f"更新时间,{updated_at}")
+    # 空分组在播放器里不显示，补一条占位频道；URL 需是合法 http 地址才会被播放器保留，
+    # 用不可播放的本地回环地址，避免误点播放出内容
+    lines.insert(1, "更新时间,http://127.0.0.1/")
     lines.append("")
 
     print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
