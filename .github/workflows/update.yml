@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  issues: write    # 失败时创建告警 Issue
 
 jobs:
   update:
@@ -38,3 +39,25 @@ jobs:
             git commit -m "chore: 更新直播源 $(date -u '+%Y-%m-%d %H:%M UTC')"
             git push
           fi
+
+      - name: 失败时创建告警 Issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OPEN=$(gh issue list --state open --label alert --json number --jq 'length')
+          if [ "$OPEN" = "0" ]; then
+            BODY="定时任务运行失败，订阅文件未更新。
+运行日志: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+常见原因：境外 runner 被 CDN 限速导致通过率低于阈值，或源站接口/签名算法变更。"
+            gh issue create --label alert --title "直播源更新失败 $(date -u '+%Y-%m-%d')" --body "$BODY"
+          fi
+
+      - name: 成功后关闭告警 Issue
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for N in $(gh issue list --state open --label alert --json number --jq '.[].number'); do
+            gh issue close "$N" --comment "已恢复正常，自动关闭。"
+          done
