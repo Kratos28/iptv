@@ -515,7 +515,7 @@ def main():
     # 文件头部插入本次更新时间（固定北京时间，云端 runner 为 UTC）
     tz_cn = datetime.timezone(datetime.timedelta(hours=8))
     updated_at = datetime.datetime.now(tz_cn).strftime("%Y-%m-%d %H:%M:%S")
-    lines.insert(0, ",#genre#")
+    lines.insert(0, "#genre#")
     lines.insert(1, f"更新时间,{updated_at}")
     lines.append("")
 
