@@ -46,11 +46,13 @@ CATE_LIST_URL = "https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a
 TV_DATA_URL = "https://program-sc.miguvideo.com/live/v2/tv-data/"
 PLAYURL_API = "https://play.miguvideo.com/playurl/v1/play/playurl"
 
-# 分组名映射为 kratos.320.io/iptv.txt 风格
+# 分组名映射：仅保留 央视/卫视/地方/港澳 等主分组，其余咪咕分类统一并入“其他频道”
 GROUP_MAP = {
     "央视": "央视频道",
     "卫视": "卫视频道",
+    "地方": "地方频道",
 }
+DEFAULT_GROUP = "其他频道"
 
 # 源站没有的央卫视，从公共源(iptv-org 中国列表)补全，键为规范频道名，值为 tvg-id 匹配前缀
 SUPPLEMENT_URL = os.environ.get("IPTV_SUPPLEMENT_URL",
@@ -360,9 +362,7 @@ def normalize_name(name: str) -> str:
 
 
 def group_name(cate_name: str) -> str:
-    if cate_name in GROUP_MAP:
-        return GROUP_MAP[cate_name]
-    return cate_name if cate_name.endswith("频道") else cate_name + "频道"
+    return GROUP_MAP.get(cate_name, DEFAULT_GROUP)
 
 
 def fetch_supplement_candidates() -> dict:
