@@ -1,11 +1,11 @@
 # 电视直播源订阅
 
-自动抓取 的电视直播源（央视、卫视、地方台等），逐个实测验证播放流畅度，生成 txt 格式订阅文件。GitHub Actions 每天定时更新 3 次（北京时间 08:03 / 13:17 / 19:41）。
+自动抓取电视直播源（央视、卫视、地方台等），逐个实测验证播放流畅度，生成 txt 格式订阅文件。GitHub Actions 每天定时更新 3 次（北京时间 08:03 / 13:17 / 19:41）。
 
 ## 订阅地址
 
 ```
-https://raw.githubusercontent.com/Kratos28/migu-iptv/main/iptv.txt
+https://raw.githubusercontent.com/Kratos28/iptv/main/iptv.txt
 ```
 
 格式与常见 IPTV 订阅一致，可直接导入 TVBox、DIYP、百川影音等播放器：
@@ -15,7 +15,7 @@ https://raw.githubusercontent.com/Kratos28/migu-iptv/main/iptv.txt
 CCTV1,http://xxx.m3u8?...
 ```
 
-分组包括：央视频道、卫视频道、地方频道、体育频道、影视频道、新闻频道、教育频道、综艺频道、少儿频道、纪实频道、熊猫频道。
+分组包括：央视频道、卫视频道、广东频道、地方频道、体育频道、影视频道、新闻频道、教育频道、综艺频道、少儿频道、纪实频道、熊猫频道。
 
 ## 本地运行
 
@@ -38,14 +38,9 @@ python3 migu_iptv.py
 
 ## 实现原理
 
-1. `program-sc.miguvideo.com/live/v2/tv-data/...` 获取频道分类与频道 ID（pID）
-2. `play.miguvideo.com/playurl/v1/play/playurl` 以安卓端签名（sign/salt）换取 720p 播放地址
-3. 对播放地址计算 `ddCalcu` 签名，跟随 302 得到真实 CDN m3u8 地址
-4. 实测分片下载速度，过滤卡顿源
-
 算法参考开源项目 [develop202/migu_video](https://github.com/develop202/migu_video)。
 
 ## 注意
 
 - 直播地址带时效参数，过期后需等下一次定时更新（最坏约 8 小时）。
-- 本项目仅供学习研究，直播内容版权归咪咕视频所有。
+- 本项目仅供学习研究，直播内容版权归原播出平台所有。

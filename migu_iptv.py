@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-咪咕视频电视直播源抓取脚本
+电视直播源抓取脚本
 
 功能：
-1. 抓取咪咕视频 App 的电视直播频道列表
+1. 抓取电视直播频道列表
 2. 为每个频道解析出 720p m3u8 直播地址（免登录，ddCalcu 签名）
 3. 实际下载分片测速，验证直播源能否流畅观看
 4. 生成 txt 格式订阅文件（分组,#genre# / 频道名,URL）
@@ -47,7 +47,7 @@ GROUP_MAP = {
     "卫视": "卫视频道",
 }
 
-# 咪咕没有的央卫视，从公共源(iptv-org 中国列表)补全，键为规范频道名，值为 tvg-id 匹配前缀
+# 源站没有的央卫视，从公共源(iptv-org 中国列表)补全，键为规范频道名，值为 tvg-id 匹配前缀
 SUPPLEMENT_URL = os.environ.get("IPTV_SUPPLEMENT_URL",
                                 "https://iptv-org.github.io/iptv/countries/cn.m3u")
 SUPPLEMENT_CHANNELS = {
@@ -407,11 +407,11 @@ def main():
             if name not in groups[gname]:
                 groups[gname][name] = url
 
-    # 补全咪咕缺失的央卫视频道（公共源，同样做流畅度验证）
+    # 补全缺失的央卫视频道（公共源，同样做流畅度验证）
     existing = {n for g in groups.values() for n in g}
     missing = {n: p for n, p in SUPPLEMENT_CHANNELS.items() if n not in existing}
     if missing:
-        print(f"\n开始补全 {len(missing)} 个咪咕缺失频道...")
+        print(f"\n开始补全 {len(missing)} 个缺失频道...")
         candidates = fetch_supplement_candidates()
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
             futs = {n: pool.submit(process_supplement, n, candidates.get(n, [])) for n in missing}
