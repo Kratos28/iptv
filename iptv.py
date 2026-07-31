@@ -512,10 +512,14 @@ def main():
         for name, url in sorted(chans.items(), key=sort_key):
             lines.append(f"{name},{url}")
             ok_count += 1
-    # 文件头部插入分组名带更新时间的标记行（时间固定北京时间）
+    # 文件头部插入更新时间分组（分组名和频道名均为时间，URL 借用本轮已验证的直播地址，
+    # 保证播放器正常显示；时间固定北京时间）
     tz_cn = datetime.timezone(datetime.timedelta(hours=8))
     updated_at = datetime.datetime.now(tz_cn).strftime("%Y-%m-%d %H:%M:%S")
+    notice_url = groups.get("央视频道", {}).get("CCTV1") or \
+        next((u for g in groups.values() for u in g.values()), "")
     lines.insert(0, f"🕘️更新时间{updated_at},#genre#")
+    lines.insert(1, f"{updated_at},{notice_url}")
     lines.append("")
 
     print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
