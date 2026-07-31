@@ -327,9 +327,10 @@ def check_stream(url: str) -> tuple:
     return False, info + " 速度不足"
 
 
-def merge_with_previous(groups: dict, path: str) -> list:
+def merge_with_previous(groups: dict, fresh: dict, path: str) -> list:
     """限速导致通过数过低时，与旧订阅合并：本轮实测通过的频道用新地址，
-    未通过的沿用旧地址，保证频道数不减少。
+    测速未通过但解析出新地址的也换新地址（旧地址约 5 小时过期，必死），
+    仅完全没解析出地址的频道沿用旧地址，保证频道数不减少。
     返回 [(组名, [(频道名, url)])]；旧文件不存在或为空返回 None。"""
     try:
         with open(path, encoding="utf-8") as f:
@@ -351,7 +352,7 @@ def merge_with_previous(groups: dict, path: str) -> list:
             continue
         if gname is None:
             continue
-        new_url = groups.get(gname, {}).get(name)
+        new_url = groups.get(gname, {}).get(name) or fresh.get(gname, {}).get(name)
         merged[-1][1].append((name, new_url or url))
         seen.add((gname, name))
     # 本轮新通过、旧订阅里还没有的频道，追加进对应分组
@@ -370,7 +371,11 @@ def merge_with_previous(groups: dict, path: str) -> list:
 
 # ---------------- 主流程 ----------------
 def process_channel(name: str, pid: str) -> tuple:
-    """返回 (url 或 None, 描述)"""
+    """返回 (通过验证的 url 或 None, 描述, 最新解析出的 url 或 None)
+
+    第三个返回值供限速合并时刷新地址用：咪咕 CDN 地址约 5 小时过期，
+    即使测速未通过，新解析的地址也比旧订阅里已过期的地址更可播。"""
+    fresh = None
     for attempt in range(1, RETRY + 2):
         try:
             play_url = get_play_url(pid)
@@ -381,16 +386,17 @@ def process_channel(name: str, pid: str) -> tuple:
             if not final_url:
                 time.sleep(0.2)
                 continue
+            fresh = final_url
             ok, info = check_stream(final_url)
             if ok:
-                return final_url, info
+                return final_url, info, fresh
             # 播放列表无分片多为未开播，重试无意义
             if "未开播" in info:
-                return None, info
+                return None, info, None
         except Exception as e:
             info = str(e)
         time.sleep(0.2)
-    return None, locals().get("info", "获取播放地址失败")
+    return None, locals().get("info", "获取播放地址失败"), fresh
 
 
 # ---------------- 频道名规范化与补全 ----------------
@@ -448,7 +454,7 @@ def main():
     total = sum(len(c["dataList"]) for c in categories)
     print(f"共 {len(categories)} 个分类, {total} 个频道，开始解析并验证...")
 
-    results = {}  # pid -> (url 或 None, 描述)
+    results = {}  # pid -> (通过验证的 url 或 None, 描述, 最新解析的 url 或 None)
     tasks = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         for cate in categories:
@@ -456,25 +462,29 @@ def main():
                 tasks.append((ch, pool.submit(process_channel, ch["name"], ch["pID"])))
         done = 0
         for ch, fut in tasks:
-            url, info = fut.result()
-            results[ch["pID"]] = (url, info)
+            url, info, fresh = fut.result()
+            results[ch["pID"]] = (url, info, fresh)
             done += 1
             mark = "OK" if url else "FAIL"
             print(f"[{done}/{total}] [{mark}] {ch['name']} - {info}")
 
     # 组内按规范名去重，保留通过验证的频道
     groups = {}  # 组名 -> {规范名: url}
+    fresh_urls = {}  # 组名 -> {规范名: 最新解析但未通过测速的 url}（限速合并时刷新用）
     final_pids = {}  # (组名, 规范名) -> pID（咪咕频道，供复验失败时重新解析）
     failed = []  # 未通过验证的频道，供 AI 自愈
     for cate in categories:
         gname = group_name(cate["name"])
         for ch in cate["dataList"]:
-            url, info = results.get(ch["pID"], (None, ""))
-            if not url:
-                failed.append({"name": normalize_name(ch["name"]),
-                               "group": gname, "reason": info})
-                continue
+            url, info, fresh = results.get(ch["pID"], (None, "", None))
             name = normalize_name(ch["name"])
+            if not url:
+                failed.append({"name": name, "group": gname, "reason": info})
+                if fresh:
+                    fresh_urls.setdefault(gname, {})
+                    if name not in fresh_urls[gname]:
+                        fresh_urls[gname][name] = fresh
+                continue
             groups.setdefault(gname, {})
             if name not in groups[gname]:
                 groups[gname][name] = url
@@ -574,9 +584,11 @@ def main():
 
     if ok_count < MIN_OK:
         # 通过数过低多为境外 runner 被 CDN 限速（源未必失效）。与旧订阅合并：
-        # 本轮实测通过的频道用新地址，未通过的沿用旧地址，频道数不减少；
+        # 实测通过的用新地址；测速未过但解析出新地址的也换新地址
+        # （咪咕地址约 5 小时过期，沿用旧地址必然 403）；仅完全没解析出
+        # 地址的沿用旧地址，频道数不减少；
         # 一个都没通过才是源站接口级故障，照旧退出触发告警。
-        merged = merge_with_previous(groups, OUTPUT_FILE) if ok_count > 0 else None
+        merged = merge_with_previous(groups, fresh_urls, OUTPUT_FILE) if ok_count > 0 else None
         if merged:
             mlines = []
             for g, chans in merged:
@@ -595,8 +607,10 @@ def main():
             report["failed"] = []
             with open(REPORT_FILE, "w", encoding="utf-8") as f:
                 json.dump(report, f, ensure_ascii=False, indent=2)
+            refreshed = sum(len(c) for c in fresh_urls.values())
             print(f"[警告] 通过数 {ok_count} 低于阈值 IPTV_MIN_OK={MIN_OK}（疑似限速），"
-                  "已与旧订阅合并更新：实测通过的换新地址，其余沿用旧地址，频道数不减少")
+                  f"已与旧订阅合并更新：实测通过的换新地址，另 {refreshed} 个测速未过频道"
+                  "也已刷新为新解析地址（旧地址约 5 小时过期），频道数不减少")
             return
         print(f"[错误] 通过数 {ok_count} 低于阈值 IPTV_MIN_OK={MIN_OK}，"
               "可能处于被限速的网络环境，保留原订阅文件不更新")
