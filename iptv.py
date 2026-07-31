@@ -6,8 +6,12 @@
 功能：
 1. 抓取电视直播频道列表
 2. 为每个频道解析出 720p m3u8 直播地址（免登录，ddCalcu 签名）
-3. 实际下载分片测速，验证直播源能否流畅观看
+3. 实际下载分片测速，验证直播源能否流畅观看（写入订阅前再全量复验一次）
 4. 生成 txt 格式订阅文件（分组,#genre# / 频道名,URL）
+5. 输出 iptv_report.json 验证报告，供工作流的 AI 自愈修复未通过频道
+
+用法：python3 iptv.py [--check URL]
+  --check URL  用与主流程相同的流畅度标准验证单个地址（AI 自愈筛选候选源用）
 
 仅使用 Python 标准库，无需安装依赖。
 本机若处于 TLS 拦截代理环境，可用 IPTV_SSL_VERIFY=0 关闭证书校验。
@@ -29,6 +33,7 @@ import urllib.request
 
 # ---------------- 配置 ----------------
 OUTPUT_FILE = os.environ.get("IPTV_OUTPUT", "iptv.txt")
+REPORT_FILE = os.environ.get("IPTV_REPORT", "iptv_report.json")  # 验证报告，供 AI 自愈使用
 MAX_WORKERS = int(os.environ.get("IPTV_WORKERS", "8"))
 MIN_OK = int(os.environ.get("IPTV_MIN_OK", "1"))  # 通过数低于此值则不更新订阅文件
 HTTP_TIMEOUT = 10
@@ -390,7 +395,7 @@ def main():
     total = sum(len(c["dataList"]) for c in categories)
     print(f"共 {len(categories)} 个分类, {total} 个频道，开始解析并验证...")
 
-    results = {}  # pid -> url or None
+    results = {}  # pid -> (url 或 None, 描述)
     tasks = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         for cate in categories:
@@ -399,23 +404,28 @@ def main():
         done = 0
         for ch, fut in tasks:
             url, info = fut.result()
-            results[ch["pID"]] = url
+            results[ch["pID"]] = (url, info)
             done += 1
             mark = "OK" if url else "FAIL"
             print(f"[{done}/{total}] [{mark}] {ch['name']} - {info}")
 
     # 组内按规范名去重，保留通过验证的频道
-    groups = {}  # 组名 -> [(规范名, url)]
+    groups = {}  # 组名 -> {规范名: url}
+    final_pids = {}  # (组名, 规范名) -> pID（咪咕频道，供复验失败时重新解析）
+    failed = []  # 未通过验证的频道，供 AI 自愈
     for cate in categories:
         gname = group_name(cate["name"])
         for ch in cate["dataList"]:
-            url = results.get(ch["pID"])
+            url, info = results.get(ch["pID"], (None, ""))
             if not url:
+                failed.append({"name": normalize_name(ch["name"]),
+                               "group": gname, "reason": info})
                 continue
             name = normalize_name(ch["name"])
             groups.setdefault(gname, {})
             if name not in groups[gname]:
                 groups[gname][name] = url
+                final_pids[(gname, name)] = ch["pID"]
 
     # 补全缺失的央卫视频道（公共源，同样做流畅度验证）
     existing = {n for g in groups.values() for n in g}
@@ -432,6 +442,8 @@ def main():
                     groups.setdefault(gname, {})[n] = url
                     print(f"[补全 OK] {n} - {info}")
                 else:
+                    gname = "央视频道" if n.startswith(("CCTV", "CGTN")) else "卫视频道"
+                    failed.append({"name": n, "group": gname, "reason": "补全: " + info})
                     print(f"[补全 FAIL] {n} - {info}")
 
     # 固定补充频道（手工维护地址，同样实测验证）
@@ -447,7 +459,33 @@ def main():
                 groups.setdefault(gname, {})[name] = url
                 print(f"[补充 OK] {name} - {info}")
             else:
+                failed.append({"name": name, "group": gname, "reason": "补充: " + info})
                 print(f"[补充 FAIL] {name} - {info}")
+
+    # 写入前对入选地址全量复验：抓取过程持续数分钟，期间地址可能失效。
+    # 咪咕频道复验失败时重新解析一个新地址再验，仍失败则剔除，
+    # 保证写入订阅文件的每个频道在写入时刻都能正常观看。
+    finalists = [(g, n, u) for g, chans in groups.items() for n, u in chans.items()]
+    dropped = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        rechecks = {(g, n): pool.submit(check_stream, u) for g, n, u in finalists}
+        for g, n, u in finalists:
+            ok, info = rechecks[(g, n)].result()
+            if ok:
+                continue
+            pid = final_pids.get((g, n))
+            new_url = process_channel(n, pid)[0] if pid else None
+            if new_url:
+                groups[g][n] = new_url
+                print(f"[复验换源] {n} - 原地址已失效，更换为新地址")
+            else:
+                del groups[g][n]
+                dropped += 1
+                failed.append({"name": n, "group": g, "reason": "复验: " + info})
+                print(f"[复验剔除] {n} - {info}")
+    if finalists:
+        print(f"复验完成: {len(finalists) - dropped}/{len(finalists)} 个频道通过")
+
     # 央视频道按 CCTV 编号排序，其余按名称排序
     def sort_key(item):
         m = re.match(r"^CCTV(\d+)", item[0])
@@ -465,6 +503,14 @@ def main():
     lines.append("")
 
     print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
+
+    # 验证报告：记录未通过频道，供工作流的 AI 自愈步骤使用
+    report = {"time": datetime.datetime.now().isoformat(timespec="seconds"),
+              "total": total, "ok_count": ok_count, "failed": failed}
+    with open(REPORT_FILE, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    print(f"验证报告已写入 {REPORT_FILE}（{len(failed)} 个频道未通过）")
+
     if ok_count < MIN_OK:
         print(f"[错误] 通过数 {ok_count} 低于阈值 IPTV_MIN_OK={MIN_OK}，"
               "可能处于被限速的网络环境，保留原订阅文件不更新")
@@ -476,4 +522,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # --check URL：用与主流程相同的流畅度标准验证单个地址，供 AI 自愈筛选候选源
+    if len(sys.argv) >= 3 and sys.argv[1] == "--check":
+        ok, info = check_stream(sys.argv[2])
+        print(("OK " if ok else "FAIL ") + info)
+        sys.exit(0 if ok else 1)
     main()

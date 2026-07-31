@@ -2,3 +2,4 @@ __pycache__/
 *.bak
 .DS_Store
 .healthcheck.log
+iptv_report.json

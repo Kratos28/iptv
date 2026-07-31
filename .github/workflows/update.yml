@@ -51,8 +51,8 @@ jobs:
           OPEN=$(gh issue list --state open --label alert --json number --jq 'length')
           if [ "$OPEN" = "0" ]; then
             BODY="定时任务运行失败，订阅文件未更新。
-运行日志: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-常见原因：境外 runner 被 CDN 限速导致通过率低于阈值，或源站接口/签名算法变更。"
+            运行日志: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+            常见原因：境外 runner 被 CDN 限速导致通过率低于阈值，或源站接口/签名算法变更。"
             gh issue create --label alert --title "直播源更新失败 $(date -u '+%Y-%m-%d')" --body "$BODY"
           fi
 
@@ -74,11 +74,44 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           kimi -p '你是本仓库的自动修复 Agent。定时任务"抓取并验证直播源"(python iptv.py)刚运行失败，带 label=alert 的告警 Issue 已创建。请按以下流程处理：
-1. 先在本机跑一次 python iptv.py（env IPTV_MIN_OK=1），观察输出判断失败类型。
-2. 如果只是境外网络被 CDN 限速（能抓到频道列表、能拿到播放地址，只是验证通过率低），属于已知现象，不要改任何代码：用 gh issue list --label alert 找到告警 Issue，评论说明"境外 runner 限速导致，非源站故障，旧订阅仍有效"并关闭该 Issue，然后结束。
-3. 如果是源站接口/签名算法变更（频道列表获取失败、playurl 接口报错、ddCalcu 签名失效等）：调研最新算法（可参考 https://github.com/develop202/migu_video 的最新源码），修复 iptv.py，修复后运行 python iptv.py 验证（境外环境通过率低可以接受，只要确认接口能正常返回播放地址即可），然后 git add/commit/push 推送修复，并在告警 Issue 评论修复说明。
-4. 如果无法确定原因或修不了，在告警 Issue 评论你排查到的信息，等待人工处理。
-约束：只修改 iptv.py；不要修改工作流文件；除上述 Issue 评论/关闭外不做其他对外操作。'
+          1. 先在本机跑一次 python iptv.py（env IPTV_MIN_OK=1），观察输出判断失败类型。
+          2. 如果只是境外网络被 CDN 限速（能抓到频道列表、能拿到播放地址，只是验证通过率低），属于已知现象，不要改任何代码：用 gh issue list --label alert 找到告警 Issue，评论说明"境外 runner 限速导致，非源站故障，旧订阅仍有效"并关闭该 Issue，然后结束。
+          3. 如果是源站接口/签名算法变更（频道列表获取失败、playurl 接口报错、ddCalcu 签名失效等）：调研最新算法（可参考 https://github.com/develop202/migu_video 的最新源码），修复 iptv.py，修复后运行 python iptv.py 验证（境外环境通过率低可以接受，只要确认接口能正常返回播放地址即可），然后 git add/commit/push 推送修复，并在告警 Issue 评论修复说明。
+          4. 如果无法确定原因或修不了，在告警 Issue 评论你排查到的信息，等待人工处理。
+          约束：只修改 iptv.py；不要修改工作流文件；除上述 Issue 评论/关闭外不做其他对外操作。'
+
+      - name: 检查未通过频道
+        if: success()
+        id: check
+        run: |
+          N=$(python3 -c "import json;print(len(json.load(open('iptv_report.json'))['failed']))" 2>/dev/null || echo 0)
+          echo "未通过频道数: $N"
+          echo "failed=$N" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: success() && env.KIMI_KEY_SET == 'true' && steps.check.outputs.failed != '0'
+        with:
+          node-version: 22
+
+      - name: AI 自愈（修复未通过频道）
+        if: success() && env.KIMI_KEY_SET == 'true' && steps.check.outputs.failed != '0'
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KIMI_MODEL_NAME: "kimi-for-coding"
+          KIMI_MODEL_API_KEY: ${{ secrets.KIMI_API_KEY }}
+          KIMI_MODEL_BASE_URL: "https://api.kimi.com/coding/v1"
+        run: |
+          npm install -g @moonshot-ai/kimi-code --silent
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          kimi -p '你是本仓库的直播源自愈 Agent。定时任务刚完成一轮抓取验证（python iptv.py），iptv_report.json 记录了未通过验证（不能观看或不流畅）的频道（name/group/reason）。请按以下流程处理：
+          1. 读取 iptv_report.json。reason 含“未开播”的频道是正常停播，跳过。
+          2. 判断是否为境外 runner 网络限速：未通过频道占 total 比例超过 30%，基本可判定为限速（已知现象），不做任何修改，直接结束。
+          3. 未通过频道如果属于 iptv.py 里 EXTRA_CHANNELS / SUPPLEMENT_CHANNELS 维护的（手工或公共源补充地址），说明候选地址已失效，需要修复：从公共源寻找同名频道的替代地址（https://iptv-org.github.io/iptv/countries/cn.m3u 按 tvg-id 或名称匹配，或 https://live.fanmingming.cn/tv/m3u/ipv6.m3u），每个候选地址用 python3 iptv.py --check "URL" 实测，输出 OK 才可用。把失效的旧地址从列表移除、验证通过的新地址加进去。
+          4. 其余源站（咪咕）自动抓取的频道本次失败多为临时波动或限速，下次定时任务会自动恢复；如果你从公共源找到了该频道稳定可用的地址（--check 实测 OK），也可以追加到 EXTRA_CHANNELS 对应分组作为备用源（代码逻辑是主源成功时不会用到备用源）。
+          5. 若有修改：运行 python3 iptv.py 确认目标频道恢复（境外环境整体通过率低可接受），然后 git add iptv.py iptv.txt，git commit -m "fix: 自愈修复失效频道"，git push。一个替代地址都找不到则不改代码不提交，直接结束。
+          约束：只允许修改 iptv.py 的 EXTRA_CHANNELS / SUPPLEMENT_CHANNELS 配置及重新生成 iptv.txt；不要修改工作流文件；不做任何对外操作（不建 Issue、不评论）。'
 
       - name: 成功后关闭告警 Issue
         if: success()
