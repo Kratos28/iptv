@@ -516,8 +516,7 @@ def main():
     tz_cn = datetime.timezone(datetime.timedelta(hours=8))
     updated_at = datetime.datetime.now(tz_cn).strftime("%Y-%m-%d %H:%M:%S")
     lines.insert(0, f"{updated_at},#genre#")
-    # 空分组在播放器里不显示，补一条占位频道，URL 用订阅地址本身
-    lines.insert(1, "更新时间,https://raw.githubusercontent.com/Kratos28/iptv/main/iptv.txt")
+    lines.insert(1, f"更新时间,{updated_at}")
     lines.append("")
 
     print(f"\n完成: {ok_count}/{total} 个频道通过验证，耗时 {time.time()-started:.0f}s")
