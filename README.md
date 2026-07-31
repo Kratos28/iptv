@@ -8,12 +8,16 @@
 https://raw.githubusercontent.com/Kratos28/migu-iptv/main/iptv.txt
 ```
 
-格式与常见 IPTV 订阅一致，可直接导入 TVBox、DIYP、百川影音等播放器：
+格式与常见 IPTV 订阅一致（分组与命名风格对齐 kratos.320.io/iptv.txt），可直接导入 TVBox、DIYP、百川影音等播放器：
 
 ```
-央视,#genre#
-CCTV1综合,http://xxx.m3u8?...
+央视频道,#genre#
+CCTV1,http://xxx.m3u8?...
 ```
+
+分组包括：央视频道、卫视频道、地方频道、体育频道、影视频道、新闻频道、教育频道、综艺频道、少儿频道、纪实频道、熊猫频道。
+
+咪咕官方没有版权的央卫视（湖南卫视、山东卫视、深圳卫视等），会从公共源（iptv-org 中国列表，多为各地广电官方 CDN）抓取候选地址补全，同样实测验证通过才会写入。
 
 ## 本地运行
 

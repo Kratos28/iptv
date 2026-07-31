@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import ssl
 import sys
 import time
@@ -39,6 +40,31 @@ UA = "okhttp/4.9.0"
 CATE_LIST_URL = "https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a79be6e25b69d2f5d05"
 TV_DATA_URL = "https://program-sc.miguvideo.com/live/v2/tv-data/"
 PLAYURL_API = "https://play.miguvideo.com/playurl/v1/play/playurl"
+
+# 分组名映射为 kratos.320.io/iptv.txt 风格
+GROUP_MAP = {
+    "央视": "央视频道",
+    "卫视": "卫视频道",
+}
+
+# 咪咕没有的央卫视，从公共源(iptv-org 中国列表)补全，键为规范频道名，值为 tvg-id 匹配前缀
+SUPPLEMENT_URL = os.environ.get("IPTV_SUPPLEMENT_URL",
+                                "https://iptv-org.github.io/iptv/countries/cn.m3u")
+SUPPLEMENT_CHANNELS = {
+    "CCTV16奥林匹克": ["CCTV16.cn"],
+    "湖南卫视": ["HunanTV.cn"],
+    "山东卫视": ["ShandongSatelliteTV.cn"],
+    "山西卫视": ["ShanxiTV.cn"],
+    "深圳卫视": ["ShenzhenSatelliteTV.cn"],
+    "四川卫视": ["SichuanSatelliteTV.cn"],
+    "天津卫视": ["TianjinTV.cn"],
+    "云南卫视": ["YunnanSatelliteTV.cn"],
+    "甘肃卫视": ["GansuTV.cn"],
+    "广西卫视": ["GuangxiTV.cn"],
+    "贵州卫视": ["GuizhouTV.cn"],
+    "西藏卫视": ["XizangTVTibetan.cn"],
+    "新疆卫视": ["XinjiangTV1.cn"],
+}
 
 APP_VERSION = "2600034600"
 APP_VERSION_ID = APP_VERSION + "-99000-201600010010028"
@@ -246,6 +272,56 @@ def process_channel(name: str, pid: str) -> tuple:
     return None, locals().get("info", "获取播放地址失败")
 
 
+# ---------------- 频道名规范化与补全 ----------------
+def normalize_name(name: str) -> str:
+    """CCTV1综合 -> CCTV1，与 kratos.320.io/iptv.txt 命名风格对齐"""
+    m = re.match(r"^(CCTV\d+\+?)", name)
+    if m:
+        return m.group(1)
+    return name.strip()
+
+
+def group_name(cate_name: str) -> str:
+    if cate_name in GROUP_MAP:
+        return GROUP_MAP[cate_name]
+    return cate_name if cate_name.endswith("频道") else cate_name + "频道"
+
+
+def fetch_supplement_candidates() -> dict:
+    """从公共 m3u 源提取补全频道的候选地址，返回 {规范名: [url, ...]}"""
+    try:
+        text = http_get(SUPPLEMENT_URL, {"User-Agent": UA}, timeout=20).decode("utf-8", "replace")
+    except Exception as e:
+        print(f"[警告] 补全源获取失败: {e}")
+        return {}
+    candidates = {}
+    for block in text.split("#EXTINF"):
+        lines = block.splitlines()
+        if len(lines) < 2:
+            continue
+        url = next((l.strip() for l in lines[1:] if l.strip() and not l.startswith("#")), "")
+        if not url.startswith("http"):
+            continue
+        id_m = re.search(r'tvg-id="([^"]*)"', lines[0])
+        tvg_id = id_m.group(1) if id_m else ""
+        for canon, prefixes in SUPPLEMENT_CHANNELS.items():
+            if any(tvg_id.startswith(p) for p in prefixes):
+                candidates.setdefault(canon, [])
+                if url not in candidates[canon]:
+                    candidates[canon].append(url)
+    return candidates
+
+
+def process_supplement(name: str, urls: list) -> tuple:
+    """依次验证候选地址，返回 (url 或 None, 描述)"""
+    info = "无候选地址"
+    for url in urls[:3]:
+        ok, info = check_stream(url)
+        if ok:
+            return url, info
+    return None, info
+
+
 def main():
     started = time.time()
     print("正在获取频道列表...")
@@ -267,15 +343,49 @@ def main():
             mark = "OK" if url else "FAIL"
             print(f"[{done}/{total}] [{mark}] {ch['name']} - {info}")
 
+    # 组内按规范名去重，保留通过验证的频道
+    groups = {}  # 组名 -> [(规范名, url)]
+    for cate in categories:
+        gname = group_name(cate["name"])
+        for ch in cate["dataList"]:
+            url = results.get(ch["pID"])
+            if not url:
+                continue
+            name = normalize_name(ch["name"])
+            groups.setdefault(gname, {})
+            if name not in groups[gname]:
+                groups[gname][name] = url
+
+    # 补全咪咕缺失的央卫视频道（公共源，同样做流畅度验证）
+    existing = {n for g in groups.values() for n in g}
+    missing = {n: p for n, p in SUPPLEMENT_CHANNELS.items() if n not in existing}
+    if missing:
+        print(f"\n开始补全 {len(missing)} 个咪咕缺失频道...")
+        candidates = fetch_supplement_candidates()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futs = {n: pool.submit(process_supplement, n, candidates.get(n, [])) for n in missing}
+            for n, fut in futs.items():
+                url, info = fut.result()
+                if url:
+                    gname = "央视频道" if n.startswith(("CCTV", "CGTN")) else "卫视频道"
+                    groups.setdefault(gname, {})[n] = url
+                    print(f"[补全 OK] {n} - {info}")
+                else:
+                    print(f"[补全 FAIL] {n} - {info}")
+
+    # 央视频道按 CCTV 编号排序，其余按名称排序
+    def sort_key(item):
+        m = re.match(r"^CCTV(\d+)", item[0])
+        return (0, int(m.group(1))) if m else (1, item[0])
+
     lines = []
     ok_count = 0
-    for cate in categories:
-        valid = [ch for ch in cate["dataList"] if results.get(ch["pID"])]
-        if not valid:
+    for gname, chans in groups.items():
+        if not chans:
             continue
-        lines.append(f"{cate['name']},#genre#")
-        for ch in valid:
-            lines.append(f"{ch['name']},{results[ch['pID']]}")
+        lines.append(f"{gname},#genre#")
+        for name, url in sorted(chans.items(), key=sort_key):
+            lines.append(f"{name},{url}")
             ok_count += 1
     lines.append("")
 
