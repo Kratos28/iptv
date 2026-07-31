@@ -74,7 +74,7 @@ SUPPLEMENT_CHANNELS = {
 # 固定补充频道（公共源里找不到、需手工维护地址的），值为候选地址列表
 # 同样每次运行时实测验证，通过才写入。分组取键名对应的组。
 EXTRA_CHANNELS = {
-    "广东频道": {
+    "地方频道": {
         "广东民生": [
             "https://16g4q89264.vicp.fun/udp/239.10.0.123:1025",
             "https://stream1.freetv.fun/yan-dong-min-sheng-35.ctv",
@@ -82,6 +82,18 @@ EXTRA_CHANNELS = {
         ],
     },
     "港澳": {
+        "凤凰中文台": [
+            "http://r.jdshipin.com/cCCzW",
+            "http://221.7.175.154:8445/tsfile/live/1020_1.m3u8",
+        ],
+        "凤凰资讯台": [
+            "http://221.7.175.154:8445/tsfile/live/1021_1.m3u8?key=txiptv&playlive=1&authid=0",
+            "http://r.jdshipin.com/0Rp07",
+        ],
+        "凤凰香港台": [
+            "http://r.jdshipin.com/yDoTN",
+            "http://r.jdshipin.com/NfC0f",
+        ],
         "翡翠台": [
             "http://r.jdshipin.com/qrfbg",
             "http://r.jdshipin.com/qClQf",
