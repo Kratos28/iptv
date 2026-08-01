@@ -1,0 +1,11 @@
+.git
+.github
+.kimi-code
+__pycache__
+*.pyc
+iptv_report.json
+iptv.txt
+README.md
+Dockerfile
+docker-entrypoint.sh
+.dockerignore
