@@ -199,7 +199,8 @@ def get_play_url(pid: str, rate_type: int = 3) -> str:
     url = (body.get("urlInfo") or {}).get("url")
     real_pid = (body.get("content") or {}).get("contId")
     if not url or not real_pid or "&puData=" not in url:
-        return ""
+        raise RuntimeError(f"playurl 未返回地址: code={resp.get('code')} "
+                           f"message={resp.get('message')} info={resp.get('info')}")
     pu_data = url.split("&puData=", 1)[1]
     return f"{url}&ddCalcu={_ddcalcu_720p(pu_data, real_pid)}&sv=10004&ct=android"
 
@@ -384,6 +385,7 @@ def process_channel(name: str, pid: str) -> tuple:
                 continue
             final_url = resolve_final_url(play_url)
             if not final_url:
+                info = "302 解析真实地址失败"
                 time.sleep(0.2)
                 continue
             fresh = final_url
