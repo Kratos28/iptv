@@ -3,7 +3,10 @@
 .kimi-code
 __pycache__
 *.pyc
+.venv
+data
 iptv_report.json
+yangshipin.json
 iptv.txt
 README.md
 Dockerfile

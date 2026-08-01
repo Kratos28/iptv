@@ -9,7 +9,9 @@ whenToUse: 当用户要求排查/修复直播源、有频道不能观看或不�
 
 ## 项目结构（先读懂再动手）
 
-- `iptv.py`：唯一脚本，仅用 Python 标准库。流程：抓咪咕频道列表 → playurl 接口取带 ddCalcu 签名的 720p 地址 → 302 解析真实 CDN 地址 → 下载分片实测速度 → 写入前全量复验 → 生成 `iptv.txt` 和 `iptv_report.json`。生成的 `iptv.txt` 头部固定带「🕘️更新时间+时间」分组及同名时间条目（时间固定北京时间，条目 URL 借用已验证地址，保证播放器显示），属正常内容，不要当作异常数据删除。通过数低于 `IPTV_MIN_OK` 但 >0 时判定为限速：与旧订阅合并（实测通过的换新地址；测速未过但解析出新地址的也换新地址——咪咕 CDN 地址约 5 小时过期，沿用旧地址必 403；仅完全没解析出地址的沿用旧地址，频道数不减少）并正常退出；一个都没通过才退出码 1 触发告警。
+- `iptv.py`：唯一主脚本，仅用 Python 标准库。流程：抓咪咕频道列表 → playurl 接口取带 ddCalcu 签名的 720p 地址 → 302 解析真实 CDN 地址 → 下载分片实测速度 → 写入前全量复验 → 生成 `iptv.txt` 和 `iptv_report.json`。生成的 `iptv.txt` 头部固定带「🕘️更新时间+时间」分组及同名时间条目（时间固定北京时间，条目 URL 借用已验证地址，保证播放器显示），属正常内容，不要当作异常数据删除。通过数低于 `IPTV_MIN_OK` 但 >0 时判定为限速：与旧订阅合并（实测通过的换新地址；测速未过但解析出新地址的也换新地址——咪咕 CDN 地址约 5 小时过期，沿用旧地址必 403；仅完全没解析出地址的沿用旧地址，频道数不减少）并正常退出；一个都没通过才退出码 1 触发告警。**注意：咪咕 playurl 接口已封锁境外 IP（403 版权问题），GitHub 云端运行取不到咪咕地址，只能靠合并续命；正式部署走 Docker（国内网络）。**
+- `yangshipin.py`：央视频备用源抓取（唯一非标准库依赖：Playwright + Chromium）。央视频官方接口签名由 WASM 计算、一次性有效，无法纯 HTTP 重放，故用无头浏览器打开直播页截取 m3u8（vkey 路径，去签名参数可播，有效期 ≥3 小时）。输出 `yangshipin.json`（gitignored），`iptv.py` 读取后补齐咪咕/公共源都缺的央视、卫视频道（同样实测验证）。频道清单来自 `capi.yangshipin.cn/api/oms/pc/page/PG00000004`（protobuf，正则解析名字+9 位 pid）。
+- `Dockerfile` / `docker-entrypoint.sh` / `fetch.sh`：自托管部署（python:3.13-slim + cron + Chromium）。启动即拉取一轮，之后每天 6 次（每 4 小时，北京时间），8080 端口提供 `iptv.txt`。
 - `iptv_report.json`：本轮验证报告，`failed` 数组记录未通过频道的 name/group/reason（gitignored，每次运行重新生成）。
 - `EXTRA_CHANNELS`（iptv.py 内）：手工维护的补充频道候选地址列表，失效地址主要在这里修。目前含地方频道（广东民生）、港澳（凤凰中文台/凤凰资讯台/凤凰香港台、翡翠台/翡翠台4K）。
 - `SUPPLEMENT_CHANNELS`（iptv.py 内）：从 iptv-org 公共源补全的央卫视频道，按 tvg-id 前缀匹配。

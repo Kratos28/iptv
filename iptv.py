@@ -10,6 +10,10 @@
 4. 生成 txt 格式订阅文件（分组,#genre# / 频道名,URL）
 5. 输出 iptv_report.json 验证报告，供工作流的 AI 自愈修复未通过频道
 
+咪咕取不到的央视/卫视频道可用央视频备用源兜底：先运行 yangshipin.py
+（需 Playwright，用无头浏览器抓央视频地址）生成 yangshipin.json，
+本脚本读取后按同名频道补缺（同样实测验证通过才写入）。
+
 用法：python3 iptv.py [--check URL]
   --check URL  用与主流程相同的流畅度标准验证单个地址（AI 自愈筛选候选源用）
 
@@ -72,6 +76,10 @@ SUPPLEMENT_CHANNELS = {
     "西藏卫视": ["XizangTVTibetan.cn"],
     "新疆卫视": ["XinjiangTV1.cn"],
 }
+
+# 央视频备用源（由 yangshipin.py 用无头浏览器提前抓取）：咪咕取不到的
+# 央视/卫视频道按同名兜底，同样实测验证通过才写入
+YANGSHIPIN_FILE = os.environ.get("IPTV_YANGSHIPIN", "yangshipin.json")
 
 # 固定补充频道（公共源里找不到、需手工维护地址的），值为候选地址列表
 # 同样每次运行时实测验证，通过才写入。分组取键名对应的组。
@@ -449,6 +457,29 @@ def process_supplement(name: str, urls: list) -> tuple:
     return None, info
 
 
+def load_yangshipin(path: str) -> dict:
+    """读取央视频备用源（yangshipin.py 生成），返回 {规范频道名: url}；没有则空。
+    频道名与咪咕侧对齐：CCTV16(4K）/CCTV16-HD 归一为 CCTV16，
+    CGTN俄语频道 去掉“频道”后缀；CCTV4K/CCTV8K 是独立频道，保持原名。"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for k, v in data.items():
+        if not (isinstance(v, str) and v.startswith("http")):
+            continue
+        if k in ("CCTV4K", "CCTV8K"):
+            name = k
+        else:
+            name = normalize_name(k)
+            if name.startswith("CGTN"):
+                name = name.removesuffix("频道")
+        out.setdefault(name, v)
+    return out
+
+
 def main():
     started = time.time()
     print("正在获取频道列表...")
@@ -526,6 +557,26 @@ def main():
             else:
                 failed.append({"name": name, "group": gname, "reason": "补充: " + info})
                 print(f"[补充 FAIL] {name} - {info}")
+
+    # 央视频备用源（yangshipin.json）：仅补咪咕/公共源都缺的央视、卫视频道
+    ysp = load_yangshipin(YANGSHIPIN_FILE)
+    if ysp:
+        existing = {n for g in groups.values() for n in g}
+        todo = {n: u for n, u in ysp.items() if n not in existing}
+        if todo:
+            print(f"\n央视频备用源补 {len(todo)} 个缺失频道...")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+                futs = {n: pool.submit(check_stream, u) for n, u in todo.items()}
+                for n, fut in futs.items():
+                    ok, info = fut.result()
+                    gname = "央视频道" if n.startswith(("CCTV", "CGTN")) else "卫视频道"
+                    if ok:
+                        groups.setdefault(gname, {})[n] = todo[n]
+                        print(f"[央视频 OK] {n} - {info}")
+                    else:
+                        failed.append({"name": n, "group": gname,
+                                       "reason": "央视频: " + info})
+                        print(f"[央视频 FAIL] {n} - {info}")
 
     # 写入前对入选地址全量复验：抓取过程持续数分钟，期间地址可能失效。
     # 咪咕频道复验失败时重新解析一个新地址再验，仍失败则剔除，
