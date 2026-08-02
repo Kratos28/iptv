@@ -7,7 +7,8 @@ https://raw.githubusercontent.com/Kratos28/iptv/main/iptv.txt
 并通过 8080 端口对外提供订阅文件。
 
 每轮先由 `yangshipin.py`（内置无头 Chromium）抓取央视频官方源作为
-央视/卫视备用源，再运行 `iptv.py` 主流程（咪咕源为主）。
+央视/卫视的优先源（同名双源：央视频在前、咪咕兜底），再运行 `iptv.py`
+主流程（咪咕源为主），并聚合 Guovin/iptv-api 的每日聚合输出补充更多频道。
 
 ```bash
 # 构建镜像（含 Chromium，约 700MB，构建需几分钟）

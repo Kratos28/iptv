@@ -15,6 +15,9 @@
 本脚本读取后验证（官方 CDN，能播即可，不卡测速），既补缺缺失频道，
 也给已有频道追加一条同名央视频源（央视频优先、咪咕在后，同名多源）。
 
+另有聚合源（默认 Guovin/iptv-api 的每日聚合输出，IPTV_AGGREGATE_URLS
+可覆盖或置空关闭）：跳过已有频道，其余实测通过后写入对应分组。
+
 用法：python3 iptv.py [--check URL]
   --check URL  用与主流程相同的流畅度标准验证单个地址（AI 自愈筛选候选源用）
 
@@ -77,6 +80,15 @@ SUPPLEMENT_CHANNELS = {
     "西藏卫视": ["XizangTVTibetan.cn"],
     "新疆卫视": ["XinjiangTV1.cn"],
 }
+
+# 聚合源：Guovin/iptv-api 项目的每日聚合输出（已按其测速排序，取前 2 个候选）。
+# 跳过本项目已有的频道，其余按同一套流畅度标准实测后写入对应分组。
+# 可用 IPTV_AGGREGATE_URLS 覆盖（逗号分隔多个，按顺序回退；置空则关闭聚合）
+AGGREGATE_URLS = [u for u in os.environ.get(
+    "IPTV_AGGREGATE_URLS",
+    "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/result.m3u"
+).split(",") if u.strip()]
+AGGREGATE_CANDIDATES = 2  # 每个频道最多试几个候选地址（聚合输出已按速度排序）
 
 # 央视频备用源（由 yangshipin.py 用无头浏览器提前抓取）：咪咕取不到的
 # 央视/卫视频道按同名兜底，同样实测验证通过才写入
@@ -491,6 +503,84 @@ def load_yangshipin(path: str) -> dict:
     return out
 
 
+def normalize_agg_name(name: str) -> str:
+    """聚合源频道名对齐本项目规范：CCTV-1/CCTV-5+ -> CCTV1/CCTV5+"""
+    name = name.strip()
+    m = re.match(r"^CCTV-?(\d+\+?)", name, re.I)
+    if m:
+        return "CCTV" + m.group(1)
+    return name
+
+
+def clean_agg_group(group: str) -> str:
+    """聚合源分组名归并：去掉 emoji，央/卫/地方/港澳并入本项目对应分组，
+    体育/电影/动画等保留原分组名"""
+    g = re.sub(r"^[^\w一-鿿]+", "", group).strip()
+    if g.startswith("🕘") or g == "更新时间":
+        return ""  # 聚合源自带的更新时间分组，丢弃
+    if "央视" in g:
+        return "央视频道"
+    if "卫视" in g:
+        return "卫视频道"
+    if "港" in g or "澳" in g or "台" in g:
+        return "港澳"
+    provinces = ("北京", "天津", "上海", "重庆", "河北", "山西", "辽宁", "吉林",
+                 "黑龙江", "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南",
+                 "湖北", "湖南", "广东", "海南", "四川", "贵州", "云南", "陕西",
+                 "甘肃", "青海", "宁夏", "新疆", "西藏", "广西", "内蒙古")
+    if any(g.startswith(p) for p in provinces):  # ☘️浙江频道 等地方分组
+        return "地方频道"
+    return g or "聚合频道"
+
+
+def fetch_aggregate_channels(urls: list) -> dict:
+    """拉取聚合源（m3u 或 txt），返回 {分组: {规范名: [url, ...]}}，按原顺序"""
+    text = None
+    for u in urls:
+        try:
+            text = http_get(u, {"User-Agent": UA}, timeout=30).decode("utf-8", "replace")
+            print(f"聚合源拉取成功: {u}（{len(text)} 字节）")
+            break
+        except Exception as e:
+            print(f"[警告] 聚合源获取失败 {u}: {e}")
+    if not text:
+        return {}
+    agg = {}
+    if text.lstrip().startswith("#EXTM3U"):
+        group, name = "聚合频道", ""
+        for line in text.splitlines():
+            line = line.strip()
+            if line.startswith("#EXTINF"):
+                gm = re.search(r'group-title="([^"]*)"', line)
+                group = gm.group(1) if gm else "聚合频道"
+                name = line.rsplit(",", 1)[-1]
+            elif line and not line.startswith("#") and name:
+                g = clean_agg_group(group)
+                n = normalize_agg_name(name)
+                if g and n:
+                    agg.setdefault(g, {}).setdefault(n, [])
+                    if line not in agg[g][n]:
+                        agg[g][n].append(line)
+    else:
+        group = "聚合频道"
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or "," not in line:
+                continue
+            name, _, url = line.partition(",")
+            if url.strip() == "#genre#":
+                group = name
+                continue
+            if url.startswith("http"):
+                g = clean_agg_group(group)
+                n = normalize_agg_name(name)
+                if g and n:
+                    agg.setdefault(g, {}).setdefault(n, [])
+                    if url not in agg[g][n]:
+                        agg[g][n].append(url)
+    return agg
+
+
 def main():
     started = time.time()
     print("正在获取频道列表...")
@@ -600,6 +690,31 @@ def main():
             ysp_channels.add((gname, n))
             added += 1
         print(f"央视频源: {len(ysp_ok)}/{len(ysp)} 可播，补缺 {added} 个频道")
+
+    # 聚合源（Guovin/iptv-api 每日聚合输出）：跳过已有频道，实测通过后写入
+    if AGGREGATE_URLS:
+        agg = fetch_aggregate_channels(AGGREGATE_URLS)
+        if agg:
+            existing = {n for g in groups.values() for n in g}
+            todo = []
+            for g, chans in agg.items():
+                for n, urls in chans.items():
+                    if n not in existing:
+                        todo.append((g, n, urls[:AGGREGATE_CANDIDATES]))
+            print(f"\n聚合源 {sum(len(c) for c in agg.values())} 个频道，"
+                  f"去重后 {len(todo)} 个新频道待验证...")
+            agg_ok = 0
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+                futs = [(g, n, pool.submit(process_supplement, n, urls))
+                        for g, n, urls in todo]
+                for g, n, fut in futs:
+                    url, info = fut.result()
+                    if url:
+                        groups.setdefault(g, {})[n] = url
+                        agg_ok += 1
+                    else:
+                        failed.append({"name": n, "group": g, "reason": "聚合: " + info})
+            print(f"聚合源: {agg_ok}/{len(todo)} 个新频道通过验证")
 
     # 写入前对入选地址全量复验：抓取过程持续数分钟，期间地址可能失效。
     # 咪咕频道复验失败时重新解析一个新地址再验，仍失败则剔除，
