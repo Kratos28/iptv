@@ -12,7 +12,7 @@
 
 咪咕取不到的央视/卫视频道可用央视频备用源兜底：先运行 yangshipin.py
 （需 Playwright，用无头浏览器抓央视频地址）生成 yangshipin.json，
-本脚本读取后按同名频道补缺（同样实测验证通过才写入）。
+本脚本读取后按同名频道补缺（官方 CDN，能播即写入，不卡测速）。
 
 用法：python3 iptv.py [--check URL]
   --check URL  用与主流程相同的流畅度标准验证单个地址（AI 自愈筛选候选源用）
@@ -255,10 +255,12 @@ def http_get_partial(url: str, max_bytes: int, timeout: int) -> tuple:
     return bytes(buf), time.time() - t0
 
 
-def check_stream(url: str) -> tuple:
+def check_stream(url: str, speed_required: bool = True) -> tuple:
     """
     验证直播源：m3u8 下载首个分片测速；TS 裸流直接采样测速。
-    返回 (是否流畅, 描述信息)
+    speed_required=False 时只要求能播（分片能下载），不卡速度
+    （央视频官方 CDN 用：境外 runner 测速偏低但国内观看无碍）。
+    返回 (是否可播, 描述信息)
     """
     try:
         head, elapsed = http_get_partial(url, 2048, HTTP_TIMEOUT)
@@ -277,6 +279,8 @@ def check_stream(url: str) -> tuple:
             return False, f"TS 流数据不足({len(data)}B)"
         speed_bps = len(data) * 8 / max(elapsed, 0.01)
         info = f"TS流 实测{speed_bps/1e6:.1f}Mbps"
+        if not speed_required:
+            return True, info
         # 直播 TS 流按实时码率下发，持续 >=1.5Mbps 即无卡顿
         ok = speed_bps >= 1_500_000
         return ok, info + (" 流畅" if ok else " 速度不足")
@@ -331,6 +335,8 @@ def check_stream(url: str) -> tuple:
     speed_bps = len(data) * 8 / max(elapsed, 0.01)
     ratio = speed_bps / bandwidth
     info = f"码率{bandwidth/1e6:.1f}Mbps 实测{speed_bps/1e6:.1f}Mbps"
+    if not speed_required:
+        return True, info
     if ratio >= MIN_SPEED_RATIO:
         return True, info + " 流畅"
     return False, info + " 速度不足"
@@ -558,20 +564,23 @@ def main():
                 failed.append({"name": name, "group": gname, "reason": "补充: " + info})
                 print(f"[补充 FAIL] {name} - {info}")
 
-    # 央视频备用源（yangshipin.json）：仅补咪咕/公共源都缺的央视、卫视频道
+    # 央视频备用源（yangshipin.json）：仅补咪咕/公共源都缺的央视、卫视频道。
+    # 央视频官方 CDN 只要求能播，不卡测速（境外 runner 测速偏低但国内观看无碍）
     ysp = load_yangshipin(YANGSHIPIN_FILE)
+    ysp_channels = set()  # (组名, 频道名)，复验时同样免测速
     if ysp:
         existing = {n for g in groups.values() for n in g}
         todo = {n: u for n, u in ysp.items() if n not in existing}
         if todo:
             print(f"\n央视频备用源补 {len(todo)} 个缺失频道...")
             with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-                futs = {n: pool.submit(check_stream, u) for n, u in todo.items()}
+                futs = {n: pool.submit(check_stream, u, False) for n, u in todo.items()}
                 for n, fut in futs.items():
                     ok, info = fut.result()
                     gname = "央视频道" if n.startswith(("CCTV", "CGTN")) else "卫视频道"
                     if ok:
                         groups.setdefault(gname, {})[n] = todo[n]
+                        ysp_channels.add((gname, n))
                         print(f"[央视频 OK] {n} - {info}")
                     else:
                         failed.append({"name": n, "group": gname,
@@ -584,7 +593,8 @@ def main():
     finalists = [(g, n, u) for g, chans in groups.items() for n, u in chans.items()]
     dropped = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        rechecks = {(g, n): pool.submit(check_stream, u) for g, n, u in finalists}
+        rechecks = {(g, n): pool.submit(check_stream, u, (g, n) not in ysp_channels)
+                    for g, n, u in finalists}
         for g, n, u in finalists:
             ok, info = rechecks[(g, n)].result()
             if ok:

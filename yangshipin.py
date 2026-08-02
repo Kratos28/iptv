@@ -27,6 +27,9 @@ import urllib.request
 
 CHANNEL_LIST_URL = "https://capi.yangshipin.cn/api/oms/pc/page/PG00000004?357109521"
 TV_HOME = "https://www.yangshipin.cn/tv/home?pid={pid}"
+# 播放器按抓取地网络选择 CDN（境外会拿到 outlivecloud，国内基本无法播放）。
+# vkey 路径与 CDN 无关（实测换 host 仍可播），统一改写到国内腾讯 CDN
+YSP_CDN = "https://hlslive-tx-cdn.ysp.cctv.cn"
 OUTPUT = os.environ.get("YSP_OUTPUT", "yangshipin.json")
 CONCURRENCY = int(os.environ.get("YSP_WORKERS", "4"))
 PAGE_TIMEOUT = 25  # 单频道等待 m3u8 请求的超时（秒）
@@ -66,7 +69,8 @@ async def grab_one(browser, name: str, pid: str, sem) -> tuple:
                 await page.goto(TV_HOME.format(pid=pid),
                                 wait_until="domcontentloaded", timeout=30000)
             req = await req_info.value
-            return name, req.url.split("?")[0], ""
+            url = re.sub(r"^https://[^/]+", YSP_CDN, req.url.split("?")[0])
+            return name, url, ""
         except Exception as e:
             return name, None, type(e).__name__
         finally:
