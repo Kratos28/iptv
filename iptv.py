@@ -10,9 +10,10 @@
 4. 生成 txt 格式订阅文件（分组,#genre# / 频道名,URL）
 5. 输出 iptv_report.json 验证报告，供工作流的 AI 自愈修复未通过频道
 
-咪咕取不到的央视/卫视频道可用央视频备用源兜底：先运行 yangshipin.py
+咪咕取不到的央视/卫视频道可用央视频源兜底：先运行 yangshipin.py
 （需 Playwright，用无头浏览器抓央视频地址）生成 yangshipin.json，
-本脚本读取后按同名频道补缺（官方 CDN，能播即写入，不卡测速）。
+本脚本读取后验证（官方 CDN，能播即可，不卡测速），既补缺缺失频道，
+也给已有频道追加一条同名央视频源（央视频优先、咪咕在后，同名多源）。
 
 用法：python3 iptv.py [--check URL]
   --check URL  用与主流程相同的流畅度标准验证单个地址（AI 自愈筛选候选源用）
@@ -342,10 +343,11 @@ def check_stream(url: str, speed_required: bool = True) -> tuple:
     return False, info + " 速度不足"
 
 
-def merge_with_previous(groups: dict, fresh: dict, path: str) -> list:
+def merge_with_previous(groups: dict, fresh: dict, ysp: dict, path: str) -> list:
     """限速导致通过数过低时，与旧订阅合并：本轮实测通过的频道用新地址，
     测速未通过但解析出新地址的也换新地址（旧地址约 5 小时过期，必死），
     仅完全没解析出地址的频道沿用旧地址，保证频道数不减少。
+    央视频源的行（ysp.cctv.cn）按本轮验证过的央视频地址换新。
     返回 [(组名, [(频道名, url)])]；旧文件不存在或为空返回 None。"""
     try:
         with open(path, encoding="utf-8") as f:
@@ -367,7 +369,10 @@ def merge_with_previous(groups: dict, fresh: dict, path: str) -> list:
             continue
         if gname is None:
             continue
-        new_url = groups.get(gname, {}).get(name) or fresh.get(gname, {}).get(name)
+        if "ysp.cctv.cn" in url:
+            new_url = ysp.get(name)
+        else:
+            new_url = groups.get(gname, {}).get(name) or fresh.get(gname, {}).get(name)
         merged[-1][1].append((name, new_url or url))
         seen.add((gname, name))
     # 本轮新通过、旧订阅里还没有的频道，追加进对应分组
@@ -564,28 +569,37 @@ def main():
                 failed.append({"name": name, "group": gname, "reason": "补充: " + info})
                 print(f"[补充 FAIL] {name} - {info}")
 
-    # 央视频备用源（yangshipin.json）：仅补咪咕/公共源都缺的央视、卫视频道。
-    # 央视频官方 CDN 只要求能播，不卡测速（境外 runner 测速偏低但国内观看无碍）
+    # 央视频源（yangshipin.json）：全部验证（能播即可，免测速——官方 CDN
+    # 质量稳定，境外 runner 测速偏低但国内观看无碍）。用途有二：
+    # 1. 补齐咪咕/公共源都缺的央视、卫视频道；
+    # 2. 输出阶段给已有频道追加一条同名央视频源（央视频优先、咪咕兜底，
+    #    APTV 等播放器会把同名频道合并为多源自动切换）
     ysp = load_yangshipin(YANGSHIPIN_FILE)
+    ysp_ok = {}  # 规范名 -> 验证可播的央视频地址
     ysp_channels = set()  # (组名, 频道名)，复验时同样免测速
     if ysp:
-        existing = {n for g in groups.values() for n in g}
-        todo = {n: u for n, u in ysp.items() if n not in existing}
-        if todo:
-            print(f"\n央视频备用源补 {len(todo)} 个缺失频道...")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-                futs = {n: pool.submit(check_stream, u, False) for n, u in todo.items()}
-                for n, fut in futs.items():
-                    ok, info = fut.result()
+        print(f"\n央视频源验证 {len(ysp)} 个频道...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futs = {n: pool.submit(check_stream, u, False) for n, u in ysp.items()}
+            for n, fut in futs.items():
+                ok, info = fut.result()
+                if ok:
+                    ysp_ok[n] = ysp[n]
+                else:
                     gname = "央视频道" if n.startswith(("CCTV", "CGTN")) else "卫视频道"
-                    if ok:
-                        groups.setdefault(gname, {})[n] = todo[n]
-                        ysp_channels.add((gname, n))
-                        print(f"[央视频 OK] {n} - {info}")
-                    else:
-                        failed.append({"name": n, "group": gname,
-                                       "reason": "央视频: " + info})
-                        print(f"[央视频 FAIL] {n} - {info}")
+                    failed.append({"name": n, "group": gname,
+                                   "reason": "央视频: " + info})
+                    print(f"[央视频 FAIL] {n} - {info}")
+        existing = {n for g in groups.values() for n in g}
+        added = 0
+        for n, u in ysp_ok.items():
+            if n in existing:
+                continue
+            gname = "央视频道" if n.startswith(("CCTV", "CGTN")) else "卫视频道"
+            groups.setdefault(gname, {})[n] = u
+            ysp_channels.add((gname, n))
+            added += 1
+        print(f"央视频源: {len(ysp_ok)}/{len(ysp)} 可播，补缺 {added} 个频道")
 
     # 写入前对入选地址全量复验：抓取过程持续数分钟，期间地址可能失效。
     # 咪咕频道复验失败时重新解析一个新地址再验，仍失败则剔除，
@@ -624,6 +638,12 @@ def main():
             continue
         lines.append(f"{gname},#genre#")
         for name, url in sorted(chans.items(), key=sort_key):
+            # 央视频优先：该频道有可播的央视频源且与本地址不同的，
+            # 先写一条同名央视频源（同名多源，播放器自动切换）
+            ysp_url = ysp_ok.get(name) if gname in ("央视频道", "卫视频道") else None
+            if ysp_url and ysp_url != url:
+                lines.append(f"{name},{ysp_url}")
+                ok_count += 1
             lines.append(f"{name},{url}")
             ok_count += 1
     # 文件头部插入更新时间分组（分组名和频道名均为时间，URL 借用本轮已验证的直播地址，
@@ -651,7 +671,7 @@ def main():
         # （咪咕地址约 5 小时过期，沿用旧地址必然 403）；仅完全没解析出
         # 地址的沿用旧地址，频道数不减少；
         # 一个都没通过才是源站接口级故障，照旧退出触发告警。
-        merged = merge_with_previous(groups, fresh_urls, OUTPUT_FILE) if ok_count > 0 else None
+        merged = merge_with_previous(groups, fresh_urls, ysp_ok, OUTPUT_FILE) if ok_count > 0 else None
         if merged:
             mlines = []
             for g, chans in merged:
