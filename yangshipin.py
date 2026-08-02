@@ -28,8 +28,9 @@ import urllib.request
 CHANNEL_LIST_URL = "https://capi.yangshipin.cn/api/oms/pc/page/PG00000004?357109521"
 TV_HOME = "https://www.yangshipin.cn/tv/home?pid={pid}"
 # 播放器按抓取地网络选择 CDN（境外会拿到 outlivecloud，国内基本无法播放）。
-# vkey 路径与 CDN 无关（实测换 host 仍可播），统一改写到国内腾讯 CDN
-YSP_CDN = "https://hlslive-tx-cdn.ysp.cctv.cn"
+# vkey 路径与 CDN 无关（实测换 host 仍可播），统一改写到国内腾讯 CDN。
+# 用 http 而非 https：与咪咕地址保持一致，兼容不支持 TLS 1.2/SNI 的老设备
+YSP_CDN = "http://hlslive-tx-cdn.ysp.cctv.cn"
 OUTPUT = os.environ.get("YSP_OUTPUT", "yangshipin.json")
 CONCURRENCY = int(os.environ.get("YSP_WORKERS", "4"))
 PAGE_TIMEOUT = 25  # 单频道等待 m3u8 请求的超时（秒）
