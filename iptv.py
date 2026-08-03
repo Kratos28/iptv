@@ -93,6 +93,7 @@ EXTRA_CHANNELS = {
     "地方频道": {
         "广东民生": [
             "https://16g4q89264.vicp.fun/udp/239.10.0.123:1025",
+            "https://hk.188766.xyz/?migutoken=08f126f29a9e9334c492a23a0f40038f&id=gd_gdms&type=sz",
         ],
     },
     "港澳": {
