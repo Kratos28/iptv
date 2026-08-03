@@ -27,8 +27,10 @@ import json
 import os
 import random
 import re
+import socket
 import ssl
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -91,13 +93,12 @@ EXTRA_CHANNELS = {
     "地方频道": {
         "广东民生": [
             "https://16g4q89264.vicp.fun/udp/239.10.0.123:1025",
-            "https://stream1.freetv.fun/yan-dong-min-sheng-35.ctv",
-            "https://stream1.freetv.fun/yan-dong-min-sheng-16.ctv",
         ],
     },
     "港澳": {
         "凤凰中文台": [
             "http://r.jdshipin.com/cCCzW",
+            "http://php.jdshipin.com/TVOD/iptv.php?id=fhzw",
             "http://221.7.175.154:8445/tsfile/live/1020_1.m3u8",
         ],
         "凤凰资讯台": [
@@ -106,6 +107,7 @@ EXTRA_CHANNELS = {
         ],
         "凤凰香港台": [
             "http://r.jdshipin.com/yDoTN",
+            "http://php.jdshipin.com/TVOD/iptv.php?id=fhhk",
             "http://r.jdshipin.com/NfC0f",
         ],
         "翡翠台": [
@@ -128,6 +130,33 @@ SSL_CTX = ssl.create_default_context()
 if os.environ.get("IPTV_SSL_VERIFY", "1") == "0":
     SSL_CTX.check_hostname = False
     SSL_CTX.verify_mode = ssl.CERT_NONE
+
+# DNS 解析兜底：getaddrinfo 不受 urlopen 的 timeout 控制，个别域名解析会无限
+# 挂起（曾导致整轮卡死在 fut.result()）。包一层带超时的解析，超时按失败处理。
+# 用 daemon 线程，挂起的解析线程不阻碍进程退出。
+_ORIG_GETADDRINFO = socket.getaddrinfo
+
+
+def _getaddrinfo_guard(*args, **kwargs):
+    result = {}
+
+    def run():
+        try:
+            result["r"] = _ORIG_GETADDRINFO(*args, **kwargs)
+        except BaseException as e:
+            result["e"] = e
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(HTTP_TIMEOUT)
+    if t.is_alive():
+        raise socket.timeout("DNS 解析超时")
+    if "e" in result:
+        raise result["e"]
+    return result["r"]
+
+
+socket.getaddrinfo = _getaddrinfo_guard
 
 
 def md5(s: str) -> str:
