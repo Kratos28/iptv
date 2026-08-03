@@ -29,20 +29,13 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: 安装 Playwright + Chromium（央视频备用源抓取）
-        run: |
-          pip install -r requirements.txt
-          playwright install --with-deps chromium
-
       - name: 抓取并验证直播源
         env:
           # 境外 runner 被咪咕接口地域封锁（playurl 403），咪咕频道全靠合并旧地址；
-          # 阈值调到不可能达到的值让云端始终走合并路径：央视频/聚合源换新的
-          # 频道用新地址，其余沿用旧地址，频道数不减少
+          # 阈值调到不可能达到的值让云端始终走合并路径：聚合源换新的频道用
+          # 新地址，其余沿用旧地址，频道数不减少
           IPTV_MIN_OK: "1000"
-        run: |
-          python yangshipin.py || echo "[警告] 央视频抓取失败，本轮无央视频备用源"
-          python iptv.py
+        run: python iptv.py
 
       - name: 提交更新
         run: |

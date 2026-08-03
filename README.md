@@ -6,12 +6,11 @@ https://raw.githubusercontent.com/Kratos28/iptv/main/iptv.txt
 00:07 / 04:07 / 08:07 / 12:07 / 16:07 / 20:07）自动更新，
 并通过 8080 端口对外提供订阅文件。
 
-每轮先由 `yangshipin.py`（内置无头 Chromium）抓取央视频官方源作为
-央视/卫视的优先源（同名双源：央视频在前、咪咕兜底），再运行 `iptv.py`
-主流程（咪咕源为主），并聚合 Guovin/iptv-api 的每日聚合输出补充更多频道。
+每轮运行 `iptv.py` 主流程（咪咕源为主），并聚合 Guovin/iptv-api 的
+每日聚合输出补充更多频道。
 
 ```bash
-# 构建镜像（含 Chromium，约 700MB，构建需几分钟）
+# 构建镜像
 docker build -t iptv .
 
 # 运行（数据持久化到宿主机 ./data，订阅端口 8080）
@@ -37,11 +36,6 @@ docker restart iptv                     # 立即重新拉取（重启即触发�
 ## 本地运行（不用 Docker）
 
 ```bash
-# 主流程仅需 Python 3 标准库
+# 仅需 Python 3 标准库
 python3 iptv.py
-
-# 央视频备用源（可选）：需安装 Playwright
-pip install -r requirements.txt
-playwright install chromium
-python3 yangshipin.py   # 生成 yangshipin.json，之后 iptv.py 会自动使用
 ```

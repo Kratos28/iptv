@@ -3,6 +3,5 @@ __pycache__/
 .DS_Store
 .healthcheck.log
 iptv_report.json
-yangshipin.json
 .venv/
 data/
