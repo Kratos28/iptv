@@ -10,5 +10,4 @@ yangshipin.json
 iptv.txt
 README.md
 Dockerfile
-docker-entrypoint.sh
 .dockerignore
