@@ -45,6 +45,7 @@ HTTP_TIMEOUT = 10
 SEG_TIMEOUT = 15          # 分片下载超时（秒）
 RETRY = 2                 # 每个频道获取播放地址的重试次数
 MIN_SPEED_RATIO = 1.0     # 实测速度 >= 码率 * 此系数 判定为“流畅”
+MIN_SPEED_BPS = 1_000_000  # 未达码率但实测超过此值仍判定可用，写入订阅（可能轻微卡顿）
 UA = "okhttp/4.9.0"
 
 CATE_LIST_URL = "https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a79be6e25b69d2f5d05"
@@ -314,9 +315,11 @@ def check_stream(url: str) -> tuple:
             return False, f"TS 流数据不足({len(data)}B)"
         speed_bps = len(data) * 8 / max(elapsed, 0.01)
         info = f"TS流 实测{speed_bps/1e6:.1f}Mbps"
-        # 直播 TS 流按实时码率下发，持续 >=1.5Mbps 即无卡顿
-        ok = speed_bps >= 1_500_000
-        return ok, info + (" 流畅" if ok else " 速度不足")
+        # 直播 TS 流按实时码率下发，持续 >=1.5Mbps 即无卡顿；未达码率但 >=1Mbps 也可用
+        if speed_bps >= 1_500_000:
+            return True, info + " 流畅"
+        ok = speed_bps >= MIN_SPEED_BPS
+        return ok, info + (" 可用(速度不足)" if ok else " 速度不足")
 
     playlist = head.decode("utf-8", "replace")
     if "#EXTM3U" not in playlist:
@@ -370,6 +373,8 @@ def check_stream(url: str) -> tuple:
     info = f"码率{bandwidth/1e6:.1f}Mbps 实测{speed_bps/1e6:.1f}Mbps"
     if ratio >= MIN_SPEED_RATIO:
         return True, info + " 流畅"
+    if speed_bps >= MIN_SPEED_BPS:
+        return True, info + " 可用(速度不足)"
     return False, info + " 速度不足"
 
 
