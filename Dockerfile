@@ -12,6 +12,6 @@ ENV TZ=Asia/Shanghai \
     IPTV_REPORT=/data/iptv_report.json
 
 VOLUME /data
-EXPOSE 8080
+EXPOSE 8111
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
