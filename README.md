@@ -2,9 +2,9 @@ https://raw.githubusercontent.com/Kratos28/iptv/main/iptv.txt
 
 ## Docker 部署（自托管订阅服务）
 
-容器启动后立即拉取一次直播源，之后每天 6 次（每 4 小时，北京时间
-00:07 / 04:07 / 08:07 / 12:07 / 16:07 / 20:07）自动更新，
-并通过 8080 端口对外提供订阅文件。
+容器启动后立即拉取一次直播源，之后每天 12 次（每 2 小时，北京时间
+00:07 / 02:07 / ... / 22:07，咪咕地址寿命实测正好 3 小时）自动更新，
+并通过 8111 端口对外提供订阅文件。
 
 每轮运行 `iptv.py` 主流程（咪咕源为主），并聚合 Guovin/iptv-api 的
 每日聚合输出补充更多频道。
@@ -13,14 +13,14 @@ https://raw.githubusercontent.com/Kratos28/iptv/main/iptv.txt
 # 构建镜像
 docker build -t iptv .
 
-# 运行（数据持久化到宿主机 ./data，订阅端口 8080）
+# 运行（数据持久化到宿主机 ./data，订阅端口 8111）
 docker run -d --name iptv --restart unless-stopped \
-  -p 8080:8080 \
+  -p 8111:8111 \
   -v $(pwd)/data:/data \
   iptv
 ```
 
-部署后订阅地址：`http://<服务器IP>:8080/iptv.txt`
+部署后订阅地址：`http://<服务器IP>:8111/iptv.txt`
 
 常用命令：
 

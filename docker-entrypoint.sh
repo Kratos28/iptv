@@ -9,10 +9,10 @@ mkdir -p /data
 # 拉取日志同步到容器标准输出，docker logs 可直接查看进度
 tail -F /data/iptv.log &
 
-# 定时任务：每天 6 次，每 4 小时一次（容器时区 Asia/Shanghai，即北京时间
-# 00:07 / 04:07 / 08:07 / 12:07 / 16:07 / 20:07）。咪咕地址约 5 小时过期，间隔须留余量
-printf '7 0,4,8,12,16,20 * * * /app/fetch.sh >> /data/iptv.log 2>&1\n' > /etc/crontabs/root
+# 定时任务：每天 12 次，每 2 小时一次（容器时区 Asia/Shanghai，即北京时间
+# 00:07 / 02:07 / ... / 22:07）。咪咕地址寿命实测正好 3 小时（过期返回 HTTP 605），2 小时间隔留足余量
+printf '7 */2 * * * /app/fetch.sh >> /data/iptv.log 2>&1\n' > /etc/crontabs/root
 crond -l 2
 
-# 对外提供订阅文件访问：http://<主机>:8080/iptv.txt
-exec python3 -m http.server 8080 --directory /data
+# 对外提供订阅文件访问：http://<主机>:8111/iptv.txt
+exec python3 -m http.server 8111 --directory /data
