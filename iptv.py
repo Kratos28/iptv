@@ -94,6 +94,8 @@ EXTRA_CHANNELS = {
         "广东民生": [
             "https://16g4q89264.vicp.fun/udp/239.10.0.123:1025",
             "https://hk.188766.xyz/?migutoken=08f126f29a9e9334c492a23a0f40038f&id=gd_gdms&type=sz",
+            # 直连 IP 候选：vicp.fun/188766.xyz 在腾讯云 DNS 解析失败时的兜底
+            "http://183.11.239.36:808/hls/18/index.m3u8",
         ],
     },
     "港澳": {
@@ -115,6 +117,7 @@ EXTRA_CHANNELS = {
             "http://r.jdshipin.com/qrfbg",
             "http://r.jdshipin.com/qClQf",
             "http://r.jdshipin.com/62WM7",
+            "http://r.jdshipin.com/GeWKr",
         ],
         "翡翠台4K": [
             "http://r.jdshipin.com/n90gt",
@@ -635,11 +638,13 @@ def main():
 
     # 固定补充频道（手工维护地址，同样实测验证）
     extra_tasks = {}
+    extra_cands = {}  # (组名, 频道名) -> 候选地址列表，供复验失败时回退
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         for gname, chans in EXTRA_CHANNELS.items():
             for name, urls in chans.items():
                 if name not in existing:
                     extra_tasks[(gname, name)] = pool.submit(process_supplement, name, urls)
+                    extra_cands[(gname, name)] = urls
         for (gname, name), fut in extra_tasks.items():
             url, info = fut.result()
             if url:
@@ -675,7 +680,8 @@ def main():
             print(f"聚合源: {agg_ok}/{len(todo)} 个新频道通过验证")
 
     # 写入前对入选地址全量复验：抓取过程持续数分钟，期间地址可能失效。
-    # 咪咕频道复验失败时重新解析一个新地址再验，仍失败则剔除，
+    # 咪咕频道复验失败时重新解析一个新地址再验；补充频道（EXTRA_CHANNELS）
+    # 复验失败时依次回退其余候选地址；仍失败则剔除，
     # 保证写入订阅文件的每个频道在写入时刻都能正常观看。
     finalists = [(g, n, u) for g, chans in groups.items() for n, u in chans.items()]
     dropped = 0
@@ -687,6 +693,14 @@ def main():
                 continue
             pid = final_pids.get((g, n))
             new_url = process_channel(n, pid)[0] if pid else None
+            if not new_url:
+                for cand in extra_cands.get((g, n), []):
+                    if cand == u:
+                        continue
+                    ok2, _ = check_stream(cand)
+                    if ok2:
+                        new_url = cand
+                        break
             if new_url:
                 groups[g][n] = new_url
                 print(f"[复验换源] {n} - 原地址已失效，更换为新地址")
