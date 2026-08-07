@@ -15,4 +15,5 @@ printf '7 */2 * * * /app/fetch.sh >> /data/iptv.log 2>&1\n' > /etc/crontabs/root
 crond -l 2
 
 # 对外提供订阅文件访问：http://<主机>:8111/iptv.txt
-exec python3 -m http.server 8111 --directory /data
+# 用 serve.py 而非 python -m http.server，后者不带 charset 会导致浏览器中文乱码
+exec python3 /app/serve.py

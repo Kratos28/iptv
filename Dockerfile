@@ -4,7 +4,7 @@ FROM python:3.13-alpine
 RUN apk add --no-cache tzdata
 
 WORKDIR /app
-COPY iptv.py fetch.sh docker-entrypoint.sh /app/
+COPY iptv.py serve.py fetch.sh docker-entrypoint.sh /app/
 RUN chmod +x /app/fetch.sh /app/docker-entrypoint.sh
 
 ENV TZ=Asia/Shanghai \
