@@ -11,16 +11,27 @@ https://raw.githubusercontent.com/Kratos28/iptv/main/iptv.txt
 （320p 及以上且实测流畅即收录），其中 720p 及以上的高清地址
 按分辨率从高到低排在频道源首位（同名多行），标清地址列在主地址之后。
 
+`whiteList.txt` 为白名单：名单中的频道跳过测速直接收录进订阅
+（频道已有实测通过的源时白名单地址作为同名备用行追加，频道缺失时
+作为主地址兜底，名单中的频道必定出现在订阅里），适用于已知稳定
+播放但服务器实测不通的地址。格式每行一条 `频道名,URL`（同名多行
+表示同频道多个地址），分组按频道名自动归类（央视/卫视/地方）。
+
 ```bash
 # 构建镜像
 docker build -t iptv .
 
-# 运行（数据持久化到宿主机 ./data，订阅端口 8111）
+# 运行（数据持久化到宿主机 ./data，订阅端口 8111，
+# whiteList.txt 挂载到宿主机，改白名单不用重建镜像）
 docker run -d --name iptv --restart unless-stopped \
   -p 8111:8111 \
   -v $(pwd)/data:/data \
+  -v $(pwd)/whiteList.txt:/app/whiteList.txt \
   iptv
 ```
+
+改白名单：直接编辑宿主机上的 `whiteList.txt`，下一轮定时任务
+自动生效；`docker restart iptv` 可立即生效。
 
 部署后订阅地址：`http://<服务器IP>:8111/iptv.txt`
 

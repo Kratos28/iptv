@@ -17,6 +17,10 @@
 从中收集已有频道达到最低高度的地址（默认 320p+），实测流畅后写入同名
 多行：720p 及以上按分辨率从高到低排在频道源首位，其余列在主地址之后。
 
+另有白名单（whiteList.txt，IPTV_WHITELIST 可改路径）：文件中的频道
+跳过测速直接收录进订阅，每行一条 "频道名,URL"，分组按频道名自动归类，
+适用于已知稳定但服务器测不通的地址。
+
 用法：python3 iptv.py [--check URL]
   --check URL  用与主流程相同的流畅度标准验证单个地址（AI 自愈筛选候选源用）
 
@@ -115,37 +119,51 @@ HD_EXTRA_SOURCES = _parse_hd_sources(os.environ.get(
     "https://develop202.github.io/migu_video/interface.txt|320"))
 HD_FIRST_MIN_HEIGHT = 720  # 外部源地址达到此高度才排在频道源首位
 
+# 白名单：文件中的频道跳过测速直接收录进订阅（频道已有实测通过的源时
+# 白名单地址作为同名备用行追加；频道缺失时白名单地址作为主地址兜底）。
+# 适用于已知稳定播放、但运行环境实测不通的地址（如地区性组播代理源）。
+# 格式每行一条 "频道名,URL"（同名多行表示同频道多个地址），分组按频道名
+# 自动归类（央视/卫视/地方）；也可用 "分组,#genre#" 行显式指定分组。
+WHITELIST_FILE = os.environ.get("IPTV_WHITELIST", "whiteList.txt")
+
+
+def load_whitelist(path: str) -> dict:
+    """读取白名单，返回 {分组: {频道名: [url, ...]}}；文件不存在返回空"""
+    wl = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return wl
+    group = None  # 未指定分组时按频道名自动归类
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "," not in line:
+            continue
+        name, _, url = line.partition(",")
+        name, url = name.strip(), url.strip()
+        if url == "#genre#":
+            group = name
+            continue
+        if not url.startswith("http") or not name:
+            continue
+        g = group or ("央视频道" if name.startswith(("CCTV", "CGTN"))
+                      else "卫视频道" if name.endswith("卫视") else "地方频道")
+        wl.setdefault(g, {}).setdefault(name, [])
+        if url not in wl[g][name]:
+            wl[g][name].append(url)
+    return wl
+
 # 固定补充频道（公共源里找不到、需手工维护地址的），值为候选地址列表
 # 同样每次运行时实测验证，通过才写入。分组取键名对应的组。
 EXTRA_CHANNELS = {
     "地方频道": {
         "广东民生": [
-            "https://16g4q89264.vicp.fun/udp/239.10.0.123:1025",
             "https://hk.188766.xyz/?migutoken=08f126f29a9e9334c492a23a0f40038f&id=gd_gdms&type=sz",
-            # 直连 IP 候选：vicp.fun/188766.xyz 在腾讯云 DNS 解析失败时的兜底
+            # 直连 IP 候选：188766.xyz 在腾讯云 DNS 解析失败时的兜底
             "http://183.11.239.36:808/hls/18/index.m3u8",
         ],
-        # 广州台（vicp.fun 组播转 HTTP 代理，720x576 标清但稳定流畅；
-        # 每频道两个候选，实测通过的排在前面）
-        "广州综合": [
-            "https://16g4q89264.vicp.fun/udp/239.11.0.138:1025",
-            "https://16g4q89264.vicp.fun/udp/239.11.0.133:1025",
-        ],
-        "广州新闻": [
-            "https://16g4q89264.vicp.fun/udp/239.11.0.139:1025",
-            "https://16g4q89264.vicp.fun/udp/239.11.0.134:1025",
-        ],
-        "广州影视": [
-            "https://16g4q89264.vicp.fun/udp/239.11.0.135:1025",
-            "https://16g4q89264.vicp.fun/udp/239.11.0.140:1025",
-        ],
-        "广州法治": [
-            "https://16g4q89264.vicp.fun/udp/239.11.0.136:1025",
-            "https://16g4q89264.vicp.fun/udp/239.11.0.141:1025",
-        ],
-        "广州竞赛": [
-            "https://16g4q89264.vicp.fun/udp/239.11.0.142:1025",
-        ],
+        # 注意：vicp.fun 等组播代理地址不进源码，由用户在 whiteList.txt 手动维护
     },
     "港澳": {
         "凤凰中文台": [
@@ -970,6 +988,9 @@ def main():
                         failed.append({"name": n, "group": g, "reason": "聚合: " + info})
             print(f"聚合源: {agg_ok}/{len(todo)} 个新频道通过验证")
 
+    # 白名单文件在复验、高清源收集之后统一处理（见下方输出组装前）
+    whitelist = load_whitelist(WHITELIST_FILE)
+
     # 写入前对入选地址全量复验：抓取过程持续数分钟，期间地址可能失效。
     # 咪咕频道复验失败时重新解析一个新地址再验；补充频道（EXTRA_CHANNELS）
     # 复验失败时依次回退其余候选地址；仍失败则剔除，
@@ -1047,6 +1068,31 @@ def main():
         print(f"外部高清源: {hd_ok}/{len(hd_list)} 条通过实测，"
               "720p 及以上将排在对应频道源首位")
 
+    # 白名单（whiteList.txt）：跳过测速直接收录。频道已在订阅中（本轮
+    # 实测通过）时，白名单地址作为同名备用行追加；频道缺失（未收到或
+    # 复验被剔除）时，白名单地址直接作为主地址兜底——名单中的频道
+    # 必定出现在订阅里。
+    wl_extra = {}  # (组名, 频道名) -> [白名单备用地址]（同名多行）
+    if whitelist:
+        chan_group = {n: g for g, chans in groups.items() for n in chans}
+        wl_added = wl_backup = 0
+        for g, chans in whitelist.items():
+            for n, urls in chans.items():
+                if n in chan_group:
+                    wl_extra.setdefault((chan_group[n], n), []).extend(urls)
+                    wl_backup += 1
+                    print(f"[白名单追加] {n} - 频道已在订阅中，白名单地址作为备用追加")
+                else:
+                    groups.setdefault(g, {})[n] = urls[0]
+                    if len(urls) > 1:
+                        wl_extra.setdefault((g, n), []).extend(urls[1:])
+                    chan_group[n] = g
+                    wl_added += 1
+                    print(f"[白名单 OK] {n} - 跳过测速直接收录")
+        if wl_added or wl_backup:
+            print(f"白名单: {wl_added} 个频道直接收录，"
+                  f"{wl_backup} 个频道追加备用地址")
+
     # 央视频道按 CCTV 编号排序，其余按名称排序
     def sort_key(item):
         m = re.match(r"^CCTV(\d+)", item[0])
@@ -1070,6 +1116,8 @@ def main():
             lines.append(f"{name},{url}")
             ok_count += 1
             for u in sd_after:
+                lines.append(f"{name},{u}")
+            for u in wl_extra.get((gname, name), []):
                 lines.append(f"{name},{u}")
     # 文件头部插入更新时间分组（分组名和频道名均为时间，URL 借用本轮已验证的直播地址，
     # 保证播放器正常显示；时间固定北京时间）
