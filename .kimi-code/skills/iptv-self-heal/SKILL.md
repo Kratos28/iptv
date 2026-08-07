@@ -15,6 +15,7 @@ whenToUse: 当用户要求排查/修复直播源、有频道不能观看或不�
 - 聚合源（iptv.py 内 `AGGREGATE_URLS`，默认 Guovin/iptv-api 的每日聚合输出 result.m3u，可用 `IPTV_AGGREGATE_URLS` 覆盖或置空关闭）：跳过已有频道，其余按同一套流畅度标准实测后写入（央/卫/地方/港澳并入对应分组，体育/电影/动画等保留原分组名；每频道最多试 2 个候选）。聚合源全是第三方中继，稳定性一般，失效属常态，不用逐个修。
 - `EXTRA_CHANNELS`（iptv.py 内）：手工维护的补充频道候选地址列表，失效地址主要在这里修。目前含地方频道（广东民生）、港澳（凤凰中文台/凤凰资讯台/凤凰香港台、翡翠台/翡翠台4K）。补充频道复验失败时会依次回退其余候选地址，仍失败才剔除。已知坑：vicp.fun / hk.188766.xyz 等 28.0.0.x 系域名在腾讯云 DNS 可能解析失败（Errno -3），广东民生因此备了直连 IP 候选；jdshipin 中继偶发 Connection reset，复验回退可消化。
 - `SUPPLEMENT_CHANNELS`（iptv.py 内）：从 iptv-org 公共源补全的央卫视频道，按 tvg-id 前缀匹配。
+- 外部高清源（iptv.py 内 `HD_EXTRA_SOURCES`，每项 "地址|最低高度"，默认 live.zbds.top/tv/iptv4.txt|320 + develop202 migu_video interface.txt|320，可用 `IPTV_HD_EXTRA_URLS` 覆盖或置空关闭）：收集已有频道达到最低高度的地址（纯标准库实现分辨率探测：m3u8 读 RESOLUTION 标签，没有则下载分片解析 H.264 SPS；H.265/fMP4 暂不解析按不通过处理），实测流畅后写入同名多行：720p 及以上按实测高度从高到低排在频道源首位，低于 720p 的列在主地址之后。限速合并轮跳过探测，合并时旧订阅里的同名高清行原样保留。zbds 多为运营商/酒店组播转 HTTP 源，失效属常态，不用逐个修。
 - `.github/workflows/update.yml`：定时任务（每天 6 次，间隔 4 小时；北京时间 00:07 / 04:13 / 08:19 / 12:25 / 16:31 / 20:37。注意：咪咕地址寿命实测正好 3 小时，云端只走合并路径影响较小，Docker 部署已改 2 小时间隔）+ 云端 AI 自愈（Kimi CLI），非用户要求不要改。云端运行 iptv.py（`IPTV_MIN_OK=1000` 使云端始终走合并路径）：云端可刷新聚合源频道；咪咕接口封境外，咪咕分组在云端只能沿用旧地址（靠 Docker 国内部署解决）。央视频源曾短暂接入（yangshipin.py + Playwright），因国内多运营商到腾讯 CDN 不通已整体移除。
 
 ## 排查流程

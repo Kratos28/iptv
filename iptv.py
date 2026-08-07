@@ -13,6 +13,10 @@
 另有聚合源（默认 Guovin/iptv-api 的每日聚合输出，IPTV_AGGREGATE_URLS
 可覆盖或置空关闭）：跳过已有频道，其余实测通过后写入对应分组。
 
+另有外部高清源（IPTV_HD_EXTRA_URLS 可覆盖或置空关闭，每项 "地址|最低高度"）：
+从中收集已有频道达到最低高度的地址（默认 320p+），实测流畅后写入同名
+多行：720p 及以上按分辨率从高到低排在频道源首位，其余列在主地址之后。
+
 用法：python3 iptv.py [--check URL]
   --check URL  用与主流程相同的流畅度标准验证单个地址（AI 自愈筛选候选源用）
 
@@ -88,6 +92,29 @@ AGGREGATE_URLS = [u for u in os.environ.get(
 ).split(",") if u.strip()]
 AGGREGATE_CANDIDATES = 2  # 每个频道最多试几个候选地址（聚合输出已按速度排序）
 
+# 外部高清源：从订阅收集已有频道的更多地址（同名多行）。收录门槛：
+# 320p 及以上且实测流畅；其中 720p 及以上的高清地址按分辨率从高到低
+# 排在频道源的首位，低于 720p 的标清地址列在主地址之后。
+# 每项为 "地址|最低高度"（缺省 320）。可用 IPTV_HD_EXTRA_URLS 覆盖
+# （逗号分隔，置空关闭）
+def _parse_hd_sources(text: str) -> list:
+    sources = []
+    for item in text.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        url, sep, h = item.rpartition("|")
+        sources.append((url.strip(), int(h)) if sep and h.isdigit()
+                       else (item, 320))
+    return sources
+
+
+HD_EXTRA_SOURCES = _parse_hd_sources(os.environ.get(
+    "IPTV_HD_EXTRA_URLS",
+    "https://live.zbds.top/tv/iptv4.txt|320,"
+    "https://develop202.github.io/migu_video/interface.txt|320"))
+HD_FIRST_MIN_HEIGHT = 720  # 外部源地址达到此高度才排在频道源首位
+
 # 固定补充频道（公共源里找不到、需手工维护地址的），值为候选地址列表
 # 同样每次运行时实测验证，通过才写入。分组取键名对应的组。
 EXTRA_CHANNELS = {
@@ -97,6 +124,27 @@ EXTRA_CHANNELS = {
             "https://hk.188766.xyz/?migutoken=08f126f29a9e9334c492a23a0f40038f&id=gd_gdms&type=sz",
             # 直连 IP 候选：vicp.fun/188766.xyz 在腾讯云 DNS 解析失败时的兜底
             "http://183.11.239.36:808/hls/18/index.m3u8",
+        ],
+        # 广州台（vicp.fun 组播转 HTTP 代理，720x576 标清但稳定流畅；
+        # 每频道两个候选，实测通过的排在前面）
+        "广州综合": [
+            "https://16g4q89264.vicp.fun/udp/239.11.0.138:1025",
+            "https://16g4q89264.vicp.fun/udp/239.11.0.133:1025",
+        ],
+        "广州新闻": [
+            "https://16g4q89264.vicp.fun/udp/239.11.0.139:1025",
+            "https://16g4q89264.vicp.fun/udp/239.11.0.134:1025",
+        ],
+        "广州影视": [
+            "https://16g4q89264.vicp.fun/udp/239.11.0.135:1025",
+            "https://16g4q89264.vicp.fun/udp/239.11.0.140:1025",
+        ],
+        "广州法治": [
+            "https://16g4q89264.vicp.fun/udp/239.11.0.136:1025",
+            "https://16g4q89264.vicp.fun/udp/239.11.0.141:1025",
+        ],
+        "广州竞赛": [
+            "https://16g4q89264.vicp.fun/udp/239.11.0.142:1025",
         ],
     },
     "港澳": {
@@ -277,6 +325,10 @@ def resolve_final_url(url: str) -> str:
 
 
 # ---------------- 流畅度验证 ----------------
+# 收录标准：主流程（咪咕/聚合/补充频道）只卡流畅度，不设分辨率门槛——
+# 标清源（320p 及以上，如 720x576 的广州台组播源）只要实测流畅即收录。
+# 分辨率门槛仅用于外部高清源（HD_EXTRA_SOURCES，默认 320p），那是给
+# 已有频道补充更多地址用的，与频道能否收录无关。
 def http_get_partial(url: str, max_bytes: int, timeout: int) -> tuple:
     """最多读取 max_bytes 字节，返回 (数据, 耗时秒)。用于无尽流的测速。"""
     req = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -378,6 +430,236 @@ def check_stream(url: str) -> tuple:
     return False, info + " 速度不足"
 
 
+# ---------------- 外部高清源（320p+ 补充，720p+ 排频道源首位） ----------------
+class _Bits:
+    """逐位读取器，供 H.264 SPS 的 Exp-Golomb 解析使用"""
+
+    def __init__(self, data: bytes):
+        self.d = data
+        self.p = 0
+
+    def u(self, n: int) -> int:
+        v = 0
+        for _ in range(n):
+            byte = self.d[self.p >> 3] if self.p >> 3 < len(self.d) else 0
+            v = (v << 1) | (byte >> (7 - (self.p & 7)) & 1)
+            self.p += 1
+        return v
+
+    def ue(self) -> int:
+        zeros = 0
+        while zeros < 32 and self.u(1) == 0:
+            zeros += 1
+        return (1 << zeros) - 1 + self.u(zeros)
+
+    def se(self) -> int:
+        k = self.ue()
+        return (k + 1) // 2 if k & 1 else -(k // 2)
+
+
+def h264_sps_height(nal: bytes) -> int:
+    """解析 H.264 SPS NAL（含 0x67 头字节），返回图像高度，失败返回 0。
+    不解析裁剪参数：1080 常以 1088 下发，不影响 >=1080 的判定。"""
+    # 去竞争保护（emulation prevention）字节
+    rbsp = bytearray()
+    i = 0
+    while i < len(nal):
+        if nal[i:i + 3] == b"\x00\x00\x03":
+            rbsp += b"\x00\x00"
+            i += 3
+        else:
+            rbsp.append(nal[i])
+            i += 1
+    b = _Bits(bytes(rbsp))
+    try:
+        b.u(8)  # NAL 头
+        profile = b.u(8)  # profile_idc
+        b.u(16)  # constraint flags + level_idc
+        b.ue()  # seq_parameter_set_id
+        if profile in (100, 110, 122, 244, 44, 83, 86, 118, 128, 138, 139, 134, 135):
+            chroma = b.ue()  # chroma_format_idc
+            if chroma == 3:
+                b.u(1)
+            b.ue()  # bit_depth_luma_minus8
+            b.ue()  # bit_depth_chroma_minus8
+            b.u(1)  # qpprime_y_zero_transform_bypass_flag
+            if b.u(1):  # seq_scaling_matrix_present_flag
+                for k in range(12 if chroma == 3 else 8):
+                    if b.u(1):
+                        last = nxt = 8
+                        for _ in range(64 if k >= 6 else 16):
+                            if nxt:
+                                nxt = (last + b.se() + 256) % 256
+                            last = nxt or last
+        b.ue()  # log2_max_frame_num_minus4
+        poc = b.ue()  # pic_order_cnt_type
+        if poc == 0:
+            b.ue()
+        elif poc == 1:
+            b.u(1)
+            b.se()
+            b.se()
+            for _ in range(b.ue()):
+                b.se()
+        b.ue()  # max_num_ref_frames
+        b.u(1)  # gaps_in_frame_num_value_allowed_flag
+        b.ue()  # pic_width_in_mbs_minus1
+        map_units = b.ue() + 1  # pic_height_in_map_units_minus1
+        frame_only = b.u(1)  # frame_mbs_only_flag
+        return map_units * 16 * (1 if frame_only else 2)
+    except (IndexError, ValueError):
+        return 0
+
+
+def _sps_height_in(es: bytes) -> int:
+    """在打包基本流里找 SPS NAL（起始码 + 0x67）并解析高度。
+    起始码可能撞在其他数据里，解析结果需落在合理分辨率区间才算数。"""
+    start = 0
+    while True:
+        i = es.find(b"\x00\x00\x01\x67", start)
+        if i < 0:
+            return 0
+        h = h264_sps_height(es[i + 3:i + 67])  # 0x67 即 NAL 头，从它开始解析
+        if 100 <= h <= 4320:
+            return h
+        start = i + 4
+
+
+def ts_stream_height(data: bytes) -> int:
+    """从 TS 流采样数据中解析视频高度（PAT/PMT 定位 H.264 视频 PID 后找 SPS），
+    失败返回 0。H.265 等暂不解析。"""
+    off = next((i for i in range(min(564, max(0, len(data) - 376)))
+                if data[i] == 0x47 and data[i + 188] == 0x47
+                and data[i + 376] == 0x47), -1)
+    if off < 0:
+        return 0
+    pmt_pid = video_pid = None
+    es = bytearray()
+    for i in range(off, len(data) - 187, 188):
+        pkt = data[i:i + 188]
+        if pkt[0] != 0x47:
+            continue
+        pid = (pkt[1] & 0x1F) << 8 | pkt[2]
+        afc = pkt[3] >> 4 & 3
+        idx = 4 + (1 + pkt[4] if afc in (2, 3) else 0)
+        if afc not in (1, 3) or idx >= 188:
+            continue
+        payload = pkt[idx:]
+        if pid == 0 and pkt[1] & 0x40:  # PAT
+            sec = payload[1 + payload[0]:]
+            if len(sec) > 12:
+                pmt_pid = (sec[10] & 0x1F) << 8 | sec[11]
+        elif pmt_pid is not None and pid == pmt_pid and pkt[1] & 0x40:  # PMT
+            sec = payload[1 + payload[0]:]
+            if len(sec) > 12:
+                j = 12 + ((sec[10] & 0x0F) << 8 | sec[11])
+                while j + 5 <= len(sec):
+                    if sec[j] == 0x1B:  # H.264
+                        video_pid = (sec[j + 1] & 0x1F) << 8 | sec[j + 2]
+                        break
+                    if sec[j] == 0x24:  # H.265 暂不解析
+                        return 0
+                    j += 5 + ((sec[j + 3] & 0x0F) << 8 | sec[j + 4])
+        elif video_pid is not None and pid == video_pid:
+            es += payload
+            if len(es) > 512 * 1024:
+                break
+    return _sps_height_in(bytes(es)) if video_pid is not None else 0
+
+
+def probe_stream_height(url: str) -> int:
+    """探测直播流高度：m3u8 优先读 RESOLUTION 标签，没有则下载首分片解析
+    SPS；TS 裸流直接采样解析。失败返回 0"""
+    try:
+        head, _ = http_get_partial(url, 4096, HTTP_TIMEOUT)
+    except Exception:
+        return 0
+    if head[:1] == b"\x47":
+        try:
+            data, _ = http_get_partial(url, 512 * 1024, SEG_TIMEOUT)
+        except Exception:
+            data = head
+        return ts_stream_height(data)
+    if b"#EXTM3U" not in head:
+        return 0
+    try:
+        playlist = http_get(url, {"User-Agent": UA}).decode("utf-8", "replace")
+    except Exception:
+        return 0
+    target = url
+    heights = [int(m.group(1)) for m in re.finditer(r"RESOLUTION=\d+x(\d+)", playlist)]
+    if "#EXT-X-STREAM-INF" in playlist:
+        if heights:
+            return max(heights)
+        # 无分辨率标签的多级列表：取码率最高的变体继续探测
+        best_bw = 0
+        lines = playlist.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("#EXT-X-STREAM-INF"):
+                bw = 0
+                for part in line.split(","):
+                    if part.startswith("BANDWIDTH="):
+                        bw = int(part.split("=", 1)[1])
+                if i + 1 < len(lines) and bw >= best_bw:
+                    best_bw = bw
+                    target = urllib.parse.urljoin(url, lines[i + 1].strip())
+        try:
+            playlist = http_get(target, {"User-Agent": UA}).decode("utf-8", "replace")
+        except Exception:
+            return 0
+        heights = [int(m.group(1)) for m in re.finditer(r"RESOLUTION=\d+x(\d+)", playlist)]
+        if heights:
+            return max(heights)
+    segments = [l.strip() for l in playlist.splitlines()
+                if l.strip() and not l.startswith("#")]
+    if not segments:
+        return 0
+    try:
+        data, _ = http_get_partial(urllib.parse.urljoin(target, segments[0]),
+                                   512 * 1024, SEG_TIMEOUT)
+    except Exception:
+        return 0
+    return ts_stream_height(data) if data[:1] == b"\x47" else 0
+
+
+def fetch_hd_candidates(sources: list, names: set) -> dict:
+    """抓取外部高清源订阅，提取已有频道的候选地址：
+    {规范名: [(url, 最低高度)]}（保持源内顺序）。
+    支持 txt（名称,地址）和 m3u（#EXTINF）两种格式。"""
+    cands = {}
+    for url, min_h in sources:
+        try:
+            text = http_get(url, {"User-Agent": UA}).decode("utf-8", "replace")
+        except Exception as e:
+            print(f"高清源 {url} 获取失败: {e}")
+            continue
+        entries = []
+        if "#EXTM3U" in text:
+            name = None
+            for line in text.splitlines():
+                line = line.strip()
+                if line.startswith("#EXTINF"):
+                    name = line.rsplit(",", 1)[-1].strip()
+                elif line and not line.startswith("#"):
+                    if name:
+                        entries.append((name, line))
+                    name = None
+        else:
+            for line in text.splitlines():
+                line = line.strip()
+                if line and not line.endswith("#genre#") and "," in line:
+                    n, u = line.split(",", 1)
+                    entries.append((n.strip(), u.strip()))
+        seen = set()
+        for n, u in entries:
+            n = normalize_name(n)
+            key = (n, u.split("?")[0])  # 同一路径不同签名只留第一条（最新的）
+            if n in names and u.startswith("http") and key not in seen:
+                seen.add(key)
+                cands.setdefault(n, []).append((u, min_h))
+    return cands
+
+
 def merge_with_previous(groups: dict, fresh: dict, path: str) -> list:
     """限速导致通过数过低时，与旧订阅合并：本轮实测通过的频道用新地址，
     测速未通过但解析出新地址的也换新地址（旧地址约 5 小时过期，必死），
@@ -405,6 +687,10 @@ def merge_with_previous(groups: dict, fresh: dict, path: str) -> list:
             continue
         if "ysp.cctv.cn" in url:
             continue  # 央视频源已下线，旧订阅里的央视频行丢弃
+        if (gname, name) in seen:
+            # 同名附加行（高清补充源）：不在本轮刷新范围，原样保留
+            merged[-1][1].append((name, url))
+            continue
         new_url = groups.get(gname, {}).get(name) or fresh.get(gname, {}).get(name)
         merged[-1][1].append((name, new_url or url))
         seen.add((gname, name))
@@ -717,6 +1003,50 @@ def main():
     if finalists:
         print(f"复验完成: {len(finalists) - dropped}/{len(finalists)} 个频道通过")
 
+    # 外部高清源：收集已有频道达到各源最低高度（默认 320p）的地址。
+    # 限速合并轮跳过（合并会原样沿用旧订阅里的高清行），避免境外/限速
+    # 环境做无谓探测。
+    hd_extra = {}  # (组名, 规范名) -> [(url, 实测高度)]
+    if HD_EXTRA_SOURCES and sum(len(c) for c in groups.values()) >= MIN_OK:
+        chan_group = {n: g for g, chans in groups.items() for n in chans}
+        cands = fetch_hd_candidates(HD_EXTRA_SOURCES, set(chan_group))
+        in_use = {u.split("?")[0] for g in groups.values() for u in g.values()}
+        best = {}  # (规范名, url) -> 最低高度（同一地址被多源收录时取最宽门槛）
+        for n, urls in cands.items():
+            for u, h in urls:
+                # 与主地址同路径（仅签名参数不同）的候选是同一路流，跳过
+                if u.split("?")[0] not in in_use:
+                    best[(n, u)] = min(h, best.get((n, u), h))
+        # 不同来源的同路径候选也只留第一条（源配置顺序即优先级）
+        hd_todo, seen_path = [], set()
+        for (n, u), h in best.items():
+            pkey = (n, u.split("?")[0])
+            if pkey not in seen_path:
+                seen_path.add(pkey)
+                hd_todo.append((n, u, h))
+        print(f"\n外部高清源 {len(hd_todo)} 条候选，开始探测分辨率...")
+        heights = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futs = {pool.submit(probe_stream_height, u): u for _, u, _ in hd_todo}
+            for fut in concurrent.futures.as_completed(futs):
+                heights[futs[fut]] = fut.result()
+        hd_list = [(n, u) for n, u, h in hd_todo if heights.get(u, 0) >= h]
+        print(f"达到高度要求: {len(hd_list)}/{len(hd_todo)} 条，开始流畅度实测...")
+        hd_ok = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futs = {(n, u): pool.submit(check_stream, u) for n, u in hd_list}
+            for n, u in hd_list:
+                try:
+                    ok, _ = futs[(n, u)].result()
+                except Exception:
+                    ok = False
+                if ok:
+                    hd_extra.setdefault((chan_group[n], n), []).append(
+                        (u, heights.get(u, 0)))
+                    hd_ok += 1
+        print(f"外部高清源: {hd_ok}/{len(hd_list)} 条通过实测，"
+              "720p 及以上将排在对应频道源首位")
+
     # 央视频道按 CCTV 编号排序，其余按名称排序
     def sort_key(item):
         m = re.match(r"^CCTV(\d+)", item[0])
@@ -729,8 +1059,18 @@ def main():
             continue
         lines.append(f"{gname},#genre#")
         for name, url in sorted(chans.items(), key=sort_key):
+            # 外部源地址按实测高度从高到低排列：720p 及以上的高清地址
+            # 排在频道源首位，低于 720p 的标清地址列在主地址之后
+            extras = sorted(hd_extra.get((gname, name), []),
+                            key=lambda x: -x[1])
+            hd_first = [u for u, h in extras if h >= HD_FIRST_MIN_HEIGHT]
+            sd_after = [u for u, h in extras if h < HD_FIRST_MIN_HEIGHT]
+            for u in hd_first:
+                lines.append(f"{name},{u}")
             lines.append(f"{name},{url}")
             ok_count += 1
+            for u in sd_after:
+                lines.append(f"{name},{u}")
     # 文件头部插入更新时间分组（分组名和频道名均为时间，URL 借用本轮已验证的直播地址，
     # 保证播放器正常显示；时间固定北京时间）
     tz_cn = datetime.timezone(datetime.timedelta(hours=8))
