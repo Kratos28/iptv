@@ -15,7 +15,8 @@
 
 另有外部高清源（IPTV_HD_EXTRA_URLS 可覆盖或置空关闭，每项 "地址|最低高度"）：
 从中收集已有频道达到最低高度的地址（默认 320p+），实测流畅后写入同名
-多行：720p 及以上按分辨率从高到低排在频道源首位，其余列在主地址之后。
+多行：央视频道/卫视频道的咪咕主源固定排第一位，其余源按分辨率从高到低；
+其他频道 720p 及以上按分辨率从高到低排在频道源首位，其余列在主地址之后。
 
 另有白名单（whiteList.txt，IPTV_WHITELIST 可改路径）：文件中的频道
 跳过测速直接收录进订阅，每行一条 "频道名,URL"，分组按频道名自动归类，
@@ -97,8 +98,9 @@ AGGREGATE_URLS = [u for u in os.environ.get(
 AGGREGATE_CANDIDATES = 2  # 每个频道最多试几个候选地址（聚合输出已按速度排序）
 
 # 外部高清源：从订阅收集已有频道的更多地址（同名多行）。收录门槛：
-# 320p 及以上且实测流畅；其中 720p 及以上的高清地址按分辨率从高到低
-# 排在频道源的首位，低于 720p 的标清地址列在主地址之后。
+# 320p 及以上且实测流畅；央视频道/卫视频道的咪咕主源固定排第一位，
+# 其余源按分辨率从高到低；其他频道 720p 及以上的高清地址按分辨率
+# 从高到低排在频道源的首位，低于 720p 的标清地址列在主地址之后。
 # 每项为 "地址|最低高度"（缺省 320）。可用 IPTV_HD_EXTRA_URLS 覆盖
 # （逗号分隔，置空关闭）
 def _parse_hd_sources(text: str) -> list:
@@ -117,7 +119,7 @@ HD_EXTRA_SOURCES = _parse_hd_sources(os.environ.get(
     "IPTV_HD_EXTRA_URLS",
     "https://live.zbds.top/tv/iptv4.txt|320,"
     "https://develop202.github.io/migu_video/interface.txt|320"))
-HD_FIRST_MIN_HEIGHT = 720  # 外部源地址达到此高度才排在频道源首位
+HD_FIRST_MIN_HEIGHT = 720  # 非央卫视频道的外部源地址达到此高度才排在频道源首位
 
 # 白名单：文件中的频道跳过测速直接收录进订阅（频道已有实测通过的源时
 # 白名单地址作为同名备用行追加；频道缺失时白名单地址作为主地址兜底）。
@@ -448,7 +450,7 @@ def check_stream(url: str) -> tuple:
     return False, info + " 速度不足"
 
 
-# ---------------- 外部高清源（320p+ 补充，720p+ 排频道源首位） ----------------
+# 外部高清源（320p+ 补充；央卫视咪咕主源固定第一，其余按分辨率排序）
 class _Bits:
     """逐位读取器，供 H.264 SPS 的 Exp-Golomb 解析使用"""
 
@@ -1066,7 +1068,7 @@ def main():
                         (u, heights.get(u, 0)))
                     hd_ok += 1
         print(f"外部高清源: {hd_ok}/{len(hd_list)} 条通过实测，"
-              "720p 及以上将排在对应频道源首位")
+              "将按分辨率排序写入对应频道（央卫视咪咕主源固定排第一）")
 
     # 白名单（whiteList.txt）：跳过测速直接收录。频道已在订阅中（本轮
     # 实测通过）时，白名单地址作为同名备用行追加；频道缺失（未收到或
@@ -1105,18 +1107,21 @@ def main():
             continue
         lines.append(f"{gname},#genre#")
         for name, url in sorted(chans.items(), key=sort_key):
-            # 外部源地址按实测高度从高到低排列：720p 及以上的高清地址
-            # 排在频道源首位，低于 720p 的标清地址列在主地址之后
             extras = sorted(hd_extra.get((gname, name), []),
                             key=lambda x: -x[1])
-            hd_first = [u for u, h in extras if h >= HD_FIRST_MIN_HEIGHT]
-            sd_after = [u for u, h in extras if h < HD_FIRST_MIN_HEIGHT]
-            for u in hd_first:
+            if gname in ("央视频道", "卫视频道") and (gname, name) in final_pids:
+                # 央视频道/卫视频道：咪咕主源固定排第一位，
+                # 其余源按实测高度从高到低排列
+                ordered = [url] + [u for u, _ in extras]
+            else:
+                # 其他频道：720p 及以上的高清地址按实测高度从高到低
+                # 排在频道源首位，低于 720p 的标清地址列在主地址之后
+                ordered = ([u for u, h in extras if h >= HD_FIRST_MIN_HEIGHT]
+                           + [url]
+                           + [u for u, h in extras if h < HD_FIRST_MIN_HEIGHT])
+            for u in ordered:
                 lines.append(f"{name},{u}")
-            lines.append(f"{name},{url}")
             ok_count += 1
-            for u in sd_after:
-                lines.append(f"{name},{u}")
             for u in wl_extra.get((gname, name), []):
                 lines.append(f"{name},{u}")
     # 文件头部插入更新时间分组（分组名和频道名均为时间，URL 借用本轮已验证的直播地址，
