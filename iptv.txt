@@ -1,5 +1,5 @@
-🕘️更新时间2026-08-16 21:26:41,#genre#
-2026-08-16 21:26:41,http://hlsztemgsplive.miguvideo.com:8080/wd_r2/cctv/cctv1hd/1200/index.m3u8?msisdn=10d45e1672e95caea4fe5e1217af19cb&mdspid=&spid=699004&netType=0&sid=2201057821&pid=2028597139&timestamp=20260810102051&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=608807420&ParentNodeID=-99&assertID=2201057821&client_ip=121.40.241.205&SecurityKey=20260810102051&promotionId=&mvid=2201057821&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=e37faeeea1b68cbdb2db85f7f5250bd3&sv=10004&ct=android
+🕘️更新时间2026-08-17 01:11:14,#genre#
+2026-08-17 01:11:14,http://hlsztemgsplive.miguvideo.com:8080/wd_r2/cctv/cctv1hd/1200/index.m3u8?msisdn=10d45e1672e95caea4fe5e1217af19cb&mdspid=&spid=699004&netType=0&sid=2201057821&pid=2028597139&timestamp=20260810102051&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=608807420&ParentNodeID=-99&assertID=2201057821&client_ip=121.40.241.205&SecurityKey=20260810102051&promotionId=&mvid=2201057821&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=e37faeeea1b68cbdb2db85f7f5250bd3&sv=10004&ct=android
 央视频道,#genre#
 CCTV1,http://hlsztemgsplive.miguvideo.com:8080/wd_r2/cctv/cctv1hd/1200/index.m3u8?msisdn=10d45e1672e95caea4fe5e1217af19cb&mdspid=&spid=699004&netType=0&sid=2201057821&pid=2028597139&timestamp=20260810102051&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=608807420&ParentNodeID=-99&assertID=2201057821&client_ip=121.40.241.205&SecurityKey=20260810102051&promotionId=&mvid=2201057821&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=e37faeeea1b68cbdb2db85f7f5250bd3&sv=10004&ct=android
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -270,7 +270,7 @@ CHC影迷电影,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/chcymdy/51/2
 徐州新闻综合,http://hlsztemgsplive.miguvideo.com:8080/wd_r2/jstv/xzxinwenzonghe/600/index.m3u8?msisdn=3bd4edbe19d7140907575584a122f2a5&mdspid=&spid=699067&netType=0&sid=5500469368&pid=2028597139&timestamp=20260810102117&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=639731747&ParentNodeID=-99&assertID=5500469368&client_ip=121.40.241.205&SecurityKey=20260810102117&promotionId=&mvid=5102012620&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=a5cdd586c3e8e3ab4762504b764b1ddf&sv=10004&ct=android
 数码时代,http://ali-m-l.cztv.com/channels/lantian/channel12/720p.m3u8?zzhed
 文成新闻综合,http://l.cztvcloud.com/channels/lantian/SXwencheng1/720p.m3u8
-文成综合,http://l.cztvcloud.com/channels/lantian/SXwencheng1/720p.m3u8?zzhed?
+文成综合,http://l.cztvcloud.com/channels/lantian/SXwencheng1/720p.m3u8?zzhed
 新昌生活,http://l.cztvcloud.com/channels/lantian/SXxinchang2/720p.m3u8
 新野综合,http://tvpull.dxhmt.cn:9081/tv/11329-1.m3u8?zhend
 新闻综合,https://m3u8channel.yunxya.com/nmip-media/channellive/channel100028/playlist.m3u8
