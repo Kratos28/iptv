@@ -1,5 +1,5 @@
-🕘️更新时间2026-09-03 01:19:15,#genre#
-2026-09-03 01:19:15,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-09-03 03:51:56,#genre#
+2026-09-03 03:51:56,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -549,7 +549,7 @@ Viutv,http://r.jdshipin.com/vSJvl
 纬来电影,http://31.43.191.125:8080/vip6821768502490/6c17bae55394/34852
 靖天戏剧,http://4gtv.cnlive.club/channel/3f07b409/index.m3u8?q=1782639885837
 天映经典,http://mag.trexlive.me:80/play/live.php?extension=ts&mac=00:1A:79:7E:2F:ED&stream=1919463
-无线星河,http://r.jdshipin.com/Voac4
+无线星河,http://r.jdshipin.com/sXuuD
 星空卫视,https://stream1.freetv.fun/xing-kong-wei-shi-12.m3u8
 东森电影,https://stream1.freetv.fun/dong-sen-dian-ying-8.ctv
 东森洋片,http://31.43.191.125:8080/vip6821768502490/6c17bae55394/34904
