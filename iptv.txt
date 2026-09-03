@@ -1,5 +1,5 @@
-🕘️更新时间2026-09-04 03:30:57,#genre#
-2026-09-04 03:30:57,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-09-04 07:02:02,#genre#
+2026-09-04 07:02:02,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
