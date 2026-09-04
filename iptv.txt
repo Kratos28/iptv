@@ -1,5 +1,5 @@
-🕘️更新时间2026-09-05 00:48:23,#genre#
-2026-09-05 00:48:23,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-09-05 03:11:17,#genre#
+2026-09-05 03:11:17,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -89,7 +89,7 @@ CGTN阿拉伯语,http://hlsztemgsplive.miguvideo.com:8080/envivo_v/SD/cctv/alabo
 老故事,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/cctvlaogushi/50/20231109/index.m3u8?msisdn=66655e33e2a23a9e1701ff5767f8ae99&mdspid=&spid=699004&netType=0&sid=5910022002&pid=2028597139&timestamp=20260810102100&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=884121956&ParentNodeID=-99&assertID=5910022002&client_ip=121.40.241.205&SecurityKey=20260810102100&promotionId=&mvid=5900006372&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=58d1e5bac959e74a78bc9c522d5846bf&sv=10004&ct=android
 世界地理,https://shcm-stream-cf1.stream.264788.xyz/cms001/ch00000090990000001620/index.m3u8?streamid=8a034b40397504e25b3775c772237996&streamkey=01vY5fRxC8VyKg4oq30vfikHXTCAKySLP29l6OG91kQlzDttHgzNLkUw5kivm3PfNsVHJv5FgdsPBYFYI2IWpt7tfRCuFHqLT2pvX67ubMds8jl2DHtvOh0&token=1775754349-4f33f4f84a4abeba-0-91687dc8c9325092efa1d00f330d2710
 其他频道,#genre#
-24小时城市联赛轮播台,http://hlszymgsplive.miguvideo.com:8080/migu/lunbo/ouzhoubei/51/20240603/index.m3u8?msisdn=bc68cbd132cbb5e0a3fbbc19324a5a78&mdspid=&spid=800033&netType=0&sid=5910022136&pid=2028597139&timestamp=20260905003341&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=915512915&ParentNodeID=-99&assertID=5910022136&client_ip=172.174.125.245&SecurityKey=20260905003341&promotionId=&mvid=5900006618&mcid=500020&playurlVersion=ZQ-A1-9.8.2-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=deb56dd82313553a545d72d52a4fea40&sv=10004&ct=android
+24小时城市联赛轮播台,http://hlszymgsplive.miguvideo.com:8080/migu/lunbo/ouzhoubei/51/20240603/index.m3u8?msisdn=38823e1d4b4d9fefbe007cf0746a8e46&mdspid=&spid=800033&netType=0&sid=5910022136&pid=2028597139&timestamp=20260905025821&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=915512915&ParentNodeID=-99&assertID=5910022136&client_ip=40.79.247.68&SecurityKey=20260905025821&promotionId=&mvid=5900006618&mcid=500020&playurlVersion=ZQ-A1-9.8.2-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=96d9c0efa9198698a89d740041563252&sv=10004&ct=android
 CETV1,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/cetv1/51/20240709/index.m3u8?msisdn=0261eac71dab46082621640f86ef4f3e&mdspid=&spid=699004&netType=0&sid=5910022150&pid=2028597139&timestamp=20260810102126&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=923287154&ParentNodeID=-99&assertID=5910022150&client_ip=121.40.241.205&SecurityKey=20260810102126&promotionId=&mvid=5900006636&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=872bb4a18ad58d707a900dcd45ec473d&sv=10004&ct=android
 CETV2,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/cetv2/51/20240709/index.m3u8?msisdn=7a7042b631ba6586bd0add5a479f4b6a&mdspid=&spid=699004&netType=0&sid=5910022152&pid=2028597139&timestamp=20260810102126&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=923287211&ParentNodeID=-99&assertID=5910022152&client_ip=121.40.241.205&SecurityKey=20260810102126&promotionId=&mvid=5900006638&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=66f6bfc39ac2563e5e56f086f769e986&sv=10004&ct=android
 CETV4,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/cetv4/51/20240709/index.m3u8?msisdn=f7170c91560c64744c318b93331fe299&mdspid=&spid=699004&netType=0&sid=5910022154&pid=2028597139&timestamp=20260810102127&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=923287339&ParentNodeID=-99&assertID=5910022154&client_ip=121.40.241.205&SecurityKey=20260810102127&promotionId=&mvid=5900006640&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=4a272eadb6be53ccfa5e59b80ab24a49&sv=10004&ct=android
@@ -281,7 +281,7 @@ CHC影迷电影,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/chcymdy/51/2
 易门综合,https://zb-live.ynurl.com/yimen/3b75a2f9-7941-46b7-992d-a9796fbca5fe.m3u8
 普陀新闻综合,http://l.cztvcloud.com/channels/lantian/SXputuo1/720p.m3u8
 普陀电视台,http://l.cztvcloud.com/channels/lantian/SXputuo1/720p.m3u8
-松潘新闻综合,http://live.spccmc.com:90/live/spxwzh.m3u8?zsicd
+松潘新闻综合,http://live.spccmc.com:90/live/spxwzh.m3u8?%E5%85%B3%E6%B3%A8%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7[%E6%99%B4%E5%9B%AD]
 松阳综合,http://l.cztvcloud.com/channels/lantian/SXsongyang1/720p.m3u8?zzhed?
 梨园,https://dxtx.hntv.tv/live/lypd.m3u8?txSecret=10c771842a0be59e8b575d765173ec96&txTime=7B923E0A&wsSecret=41543190cdf375f1c73207222bb96542&wsTime=1769313549
 武义新闻综合,http://l.cztvcloud.com/channels/lantian/SXwuyi1/720p.m3u8
