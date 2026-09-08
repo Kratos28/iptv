@@ -1,5 +1,5 @@
-🕘️更新时间2026-09-08 21:16:07,#genre#
-2026-09-08 21:16:07,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-09-09 01:20:01,#genre#
+2026-09-09 01:20:01,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -216,7 +216,7 @@ CHC影迷电影,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/chcymdy/51/2
 余姚姚江文化,https://l.cztvcloud.com/channels/lantian/SXyuyao3/720p.m3u8
 余姚姚江文化,http://l.cztvcloud.com/channels/lantian/SXyuyao3/720p.m3u8?zzhed
 余姚新闻综合,http://l.cztvcloud.com/channels/lantian/SXyuyao1/720p.m3u8
-余姚综合,https://l.cztvcloud.com/channels/lantian/SXyuyao1/720p.m3u8
+余姚综合,http://l.cztvcloud.com/channels/lantian/SXyuyao1/720p.m3u8?zzhed
 余杭未来E,http://l.cztvcloud.com/channels/lantian/SXyuhang3/720p.m3u8?zzhed
 余杭综合,http://l.cztvcloud.com/channels/lantian/SXyuhang1/720p.m3u8?zzhed
 公共新闻频道,http://hlsztemgsplive.miguvideo.com:8080/wd_r2/jstv/jsgonggong/600/index.m3u8?msisdn=166991a13aab2d0f7cc8ef7611b5ce90&mdspid=&spid=699067&netType=0&sid=5500260520&pid=2028597139&timestamp=20260810102115&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=626064693&ParentNodeID=-99&assertID=5500260520&client_ip=121.40.241.205&SecurityKey=20260810102115&promotionId=&mvid=5100186429&mcid=500020&playurlVersion=WX-A1-9.8.0-SNAPSHOT&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=41f83278a3387492229cedf0ee91d231&sv=10004&ct=android
