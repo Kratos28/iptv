@@ -1,5 +1,5 @@
-🕘️更新时间2026-09-20 21:29:08,#genre#
-2026-09-20 21:29:08,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-09-21 00:54:53,#genre#
+2026-09-21 00:54:53,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -563,7 +563,7 @@ Viutv,http://r.jdshipin.com/vSJvl
 体育频道,#genre#
 广东体育,http://r.jdshipin.com/LiYdg
 纬来体育,https://epg.pw/stream/8855a9936e37e608a0ec8a014cce1673dee9c5d68d560da376cc92e5edef2b25.m3u8
-精品体育,https://epg.pw/stream/866a097a0907c9832440f8df38272dd555abf05200dfbafcc137e214c9b30ca7.m3u8
+精品体育,https://epg.pw/stream/f7556eccd4ae06b0c2991fdc7a4f8388496559f728cc82459a8e50346040e226.m3u8
 广州竞赛,https://stream1.freetv.fun/yan-zhou-jing-sai-34.ctv
 山东体育,https://stream1.freetv.fun/shan-dong-ti-yu-8.m3u8
 风云足球,https://epg.pw/stream/6d7bf281e3d739806a73f5373acaa6e01988ec9739f5ac1355ce54b47a928472.m3u8
