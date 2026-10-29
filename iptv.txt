@@ -1,5 +1,5 @@
-🕘️更新时间2026-10-29 05:13:43,#genre#
-2026-10-29 05:13:43,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-10-29 08:23:46,#genre#
+2026-10-29 08:23:46,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -541,7 +541,7 @@ CHC影迷电影,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/chcymdy/51/2
 翡翠台4K,http://r.jdshipin.com/n90gt
 明珠台,http://r.jdshipin.com/ZQ4kN
 凤凰中文,https://7612-5516-affc-d88b.kylintv.tv/live/pxinhd_iphone.m3u8
-凤凰香港,http://r.jdshipin.com/yDoTN
+凤凰香港,http://r.jdshipin.com/NfC0f
 TVBS亚洲,http://38.64.72.148:80/hls/modn/list/4005/playlist.m3u8
 纬来体育,https://epg.pw/stream/8855a9936e37e608a0ec8a014cce1673dee9c5d68d560da376cc92e5edef2b25.m3u8
 Viutv,http://r.jdshipin.com/vSJvl
