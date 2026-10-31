@@ -1,5 +1,5 @@
-🕘️更新时间2026-10-31 05:02:53,#genre#
-2026-10-31 05:02:53,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-10-31 08:02:13,#genre#
+2026-10-31 08:02:13,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -564,7 +564,7 @@ Viutv,http://r.jdshipin.com/vSJvl
 东森超视,https://stream1.freetv.fun/dong-sen-chao-shi-4.m3u8
 靖天映画,http://31.43.191.125:8080/vip6821768502490/6c17bae55394/34838
 龙祥电影,http://31.43.191.125:8080/vip6821768502490/6c17bae55394/34825
-经典电影,https://txmov2.a.kwimgs.com/bs3/video-hls/5211790793651941963_hlsb.m3u8
+经典电影,https://goodiptv.club/douyu/6091425
 体育频道,#genre#
 广东体育,http://r.jdshipin.com/LiYdg
 纬来体育,https://epg.pw/stream/8855a9936e37e608a0ec8a014cce1673dee9c5d68d560da376cc92e5edef2b25.m3u8
