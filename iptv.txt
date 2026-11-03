@@ -1,5 +1,5 @@
-🕘️更新时间2026-11-03 07:40:21,#genre#
-2026-11-03 07:40:21,http://go.bkpcp.top/mg/cctv1
+🕘️更新时间2026-11-03 10:40:20,#genre#
+2026-11-03 10:40:20,http://go.bkpcp.top/mg/cctv1
 央视频道,#genre#
 CCTV1,http://go.bkpcp.top/mg/cctv1
 CCTV1,http://219.147.245.238:25480/newlive/live/hls/1/live.m3u8
@@ -189,6 +189,7 @@ CHC影迷电影,http://hlsztemgsplive.miguvideo.com:8080/migu/kailu/chcymdy/51/2
 黑龙江卫视,https://idclive.hljtv.com:4430/live/hljws_own.m3u8
 浙江卫视,http://go.bkpcp.top/mg/zjws
 深圳卫视,http://38.64.72.148:80/hls/modn/list/4007/playlist.m3u8
+西藏卫视,https://live.vtibet.cn/live/ZYWS20261016.stream.m3u8
 地方频道,#genre#
 七台河新闻综合,http://live.qthnews.org.cn:1935/live/live1/800k/tzwj_video.m3u8
 上海新闻综合,https://stream1.freetv.fun/shang-hai-xin-wen-zong-he-3.m3u8
